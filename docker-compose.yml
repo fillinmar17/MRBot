@@ -1,0 +1,9 @@
+services:
+  node:
+    build:
+      context: .
+      dockerfile: docker/node/Dockerfile
+      target: base
+    platform: linux/amd64
+    volumes:
+      - ./:/app

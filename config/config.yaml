@@ -1,0 +1,20 @@
+settings:
+  date_format: YYYY-MM-DD
+  delay_color_after_days:
+    yellow: 2 # By default, notification are green, after 2 days they'll be yellow
+    orange: 4 # After 4 days, they'll be orange
+    red: 7 # More than 7 days, notifications are red
+  discord:
+    token: <your discord token> # You must create a discord bot and put your token here
+  users:
+    #
+    # For every users you have to define notification rules
+    # Github Token and Discord ID help Remindub to match users to be able to notify them
+    #
+    - github_token: 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 # Github's token https://github.com/settings/tokens
+      discord_id: "<user's discord ID>" #
+      repositories:
+        - bob/test
+      scheduled_notifications:
+        - "0 9 * * *" # At 9:00am every days
+        - "30 12 * * 1-5" # At 12:30pm every working days

@@ -1,0 +1,10 @@
+{
+  "reminder": {
+    "description": "{{- username}} est en attente de votre review",
+    "footer": {
+      "base":  "Pull-request crée le {{- createdAtFormatted}} ({{- delay}})",
+      "delay": "moins de 24h",
+      "delay_plural": "Il y a {{count}} jours"
+    }
+  }
+}
