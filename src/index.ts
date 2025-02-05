@@ -10,10 +10,8 @@ import fr from "../translations/translations.fr.json";
 import es from "../translations/translations.es.json";
 import {Communicator} from './bot/communicator';
 
-import * as http from 'http';
-import * as url from 'url';
-import * as querystring from 'querystring';
 import {getDefaultApiToken} from "./bot/env";
+import {assignReviewers, MR_URL} from "./reviewers";
 
 const config = new Config();
 const github = new Github();
@@ -88,7 +86,7 @@ const startPolling = async () => {
 
     while (true) {
         const updates = await getUpdates(offset);
-        if (updates.length > 0) {
+        if (updates && updates.length > 0) {
             processUpdates(updates);
             offset = updates[updates.length - 1].update_id + 1; // Move the offset forward
         }
@@ -100,20 +98,19 @@ const startPolling = async () => {
 startPolling()
 
 config.parameters.settings.users.map(async user => {
-    console.log('logs user');
     const communicator = Communicator.getDefault();
-    // Отправляем сообщение в VKTeams и Telegram
-    // await communicator.sendMessage(['telegram:415887410'],
-    //     `Hi, *%username%*!
-    //      Message sent via \`Communicator\`
-    // `);
     const mineAcc = '415887410';
     await communicator.sendMessage([`telegram:${mineAcc}`],
         `Hi, *%username%*!
          Message sent via \`Communicator\`
     `);
+
+    // Вы можете вызывать assignReviewers, передавая номер PR
+    assignReviewers(MR_URL).catch(console.error);
+
   const githubUsername = await github.getUsername(user.github_token);
 
+  // todo: reminders
   user.scheduled_notifications.map(async scheduled_notification => {
     // Instantiate schedules
     scheduleJob(scheduled_notification, async function () {
