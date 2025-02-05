@@ -1,14 +1,15 @@
 // import axios from 'axios';
-//
-// const GITHUB_TOKEN = 'YOUR_GITHUB_TOKEN';  // замените на свой токен
-// const REPO_OWNER = 'owner';                  // замените на владельца репозитория
-// const REPO_NAME = 'repository';              // замените на имя репозитория
-//
-// interface Reviewer {
-//     username: string;
-//     load: number;   // количество мерж-реквестов на ревью у данного ревьюера
-// }
-//
+import {getDefaultApiToken} from "../bot/env";
+
+const GITHUB_TOKEN = getDefaultApiToken();  // замените на свой токен
+const REPO_OWNER = 'owner';                  // замените на владельца репозитория
+const REPO_NAME = 'repository';              // замените на имя репозитория
+
+interface Reviewer {
+    username: string;
+    load: number;   // количество мерж-реквестов на ревью у данного ревьюера
+}
+
 // async function getPullRequest(prNumber: number) {
 //     const response = await axios.get(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${prNumber}`, {
 //         headers: {
