@@ -152,6 +152,7 @@ export abstract class CoreBot {
 						error: axios.isAxiosError(error)
 							? {
 									status: error.response?.status,
+									statusText: error?.response?.data?.description,
 									headers: error.response?.headers,
 							  }
 							: `${error}`,

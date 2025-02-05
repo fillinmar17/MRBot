@@ -11,7 +11,6 @@ export function getDefaultProvider() {
 }
 
 export function getDefaultApiToken() {
-	console.log('logs process.env', process.env)
 	return process.env['COMMUNICATOR_API_TOKEN'] || getVKTeamsToken();
 }
 

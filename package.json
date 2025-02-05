@@ -1,28 +1,14 @@
 {
-  "name": "remindub",
+  "name": "MRBot",
   "version": "0.0.1",
-  "description": "Github's pull request reminder for discord",
+  "description": "bot to help you to get your merge request APPROVING faster",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "webpack --mode=development --config=webpack.config.js --watch"
   },
-  "keywords": [
-    "discord",
-    "github",
-    "pull-request",
-    "reminder"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/bt0r/Remindub.git"
-  },
-  "author": "bt0r",
+  "author": "Marina Novikova",
   "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/bt0r/Remindub/issues"
-  },
-  "homepage": "https://github.com/bt0r/Remindub#readme",
   "dependencies": {
     "@artifact-project/i18n": "^1.1.0",
     "axios": "^0.21.4",

@@ -13,7 +13,7 @@ import {Communicator} from './bot/communicator';
 import * as http from 'http';
 import * as url from 'url';
 import * as querystring from 'querystring';
-import {getDefaultApiToken} from "@/bot/env";
+import {getDefaultApiToken} from "./bot/env";
 
 const config = new Config();
 const github = new Github();
@@ -88,7 +88,6 @@ const startPolling = async () => {
 
     while (true) {
         const updates = await getUpdates(offset);
-
         if (updates.length > 0) {
             processUpdates(updates);
             offset = updates[updates.length - 1].update_id + 1; // Move the offset forward
@@ -108,7 +107,8 @@ config.parameters.settings.users.map(async user => {
     //     `Hi, *%username%*!
     //      Message sent via \`Communicator\`
     // `);
-    await communicator.sendMessage(['telegram:178714360'],
+    const mineAcc = '415887410';
+    await communicator.sendMessage([`telegram:${mineAcc}`],
         `Hi, *%username%*!
          Message sent via \`Communicator\`
     `);
