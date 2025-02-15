@@ -130,7 +130,6 @@ export abstract class CoreBot {
 	/** Работа с API */
 	protected async call<R>(type: 'get' | 'post', method: string, params: Record<string, unknown>) {
 		const url = this.url(method);
-		console.log('logs url', url, 'method', method, 'type', type)
 
 		try {
 			const result = await retry({
@@ -191,11 +190,12 @@ export abstract class CoreBot {
 	): ChatUpdate | null {
 		let update = parse(raw);
 
+
+
 		try {
 			options.handleRawUpdate?.(raw);
 		} catch {}
 
-		verbose('log', 'parseUpdate', raw);
 
 		if (update == null) {
 			verbose('log', '[Bot] unknown update:', raw);

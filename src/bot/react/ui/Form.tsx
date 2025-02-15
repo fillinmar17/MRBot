@@ -1,7 +1,7 @@
 import * as React from 'react';
 
-import {Communicator} from '../../bot/communicator';
-import type {ChatMessageEvent} from '../../bot/types';
+import {Communicator} from '../../../bot/communicator';
+import type {ChatMessageEvent} from '../../../bot/types';
 import {useReactMessage} from './Message';
 import {Blockquote, NewLine, Paragraph, Text, TextProps} from './Text';
 
@@ -51,14 +51,14 @@ export const InputText = (props: InputTextProps) => {
 	return <Paragraph>{props.children}</Paragraph>;
 };
 
-type FormData = Record<string, string | undefined>;
+export type FormDataType = Record<string, string | undefined>;
 
-export type FormProps<T extends FormData> = {
+export type FormProps<T extends FormDataType> = {
 	initialData: T;
 	children: FormItemElement | FormItemElement[];
 };
 
-export const Form = <T extends FormData>(props: FormProps<T>) => {
+export const Form = <T extends FormDataType>(props: FormProps<T>) => {
 	const {useValue} = useReactMessage();
 	const [data, setData] = useValue({...props.initialData});
 	const [cursor, setCursor] = useValue('');
@@ -118,9 +118,30 @@ export type FormItemProps = {
 };
 type FormItemElement = React.FunctionComponentElement<FormItemProps>;
 
+
 const FormItem = (props: FormItemProps) => {
 	return <>{props.children}</>;
 };
+
+export const FormItemEx: React.FC<FormItemProps> = ({ name, label, children }) => {
+	return (
+		<div className="form-item">
+			{label && <label htmlFor={name}>{label}</label>}
+			<div className="form-input">
+				{React.Children.map(children, child => {
+					// Cloning the child to pass props, like `id` if needed
+					return React.cloneElement(child as React.ReactElement, { id: name });
+				})}
+			</div>
+		</div>
+	);
+};
+
+export const formItemElement: FormItemElement = (
+	<FormItem name="username" label="Username">
+		<div>Задайте вопрос</div>
+	</FormItem>
+);
 
 Form.displayName = 'Form';
 Form.Item = FormItem;

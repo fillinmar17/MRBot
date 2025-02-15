@@ -1,5 +1,5 @@
-import {ReactMessage} from '../react/core/message/message';
-import type {ClickedReactKeyboardButton} from '../react/ui/Keyboard';
+import {ReactMessage} from './react/core/message/message';
+import type {ClickedReactKeyboardButton} from './react/ui/Keyboard';
 import type {CoreBot, Message, MessageSendResult} from './bot';
 import type {Communicator} from './communicator';
 import type {Chat, ChatCallbackEvent, ChatUser} from './types';
@@ -13,7 +13,7 @@ type ButtonBaseData = {
 
 export type MessageKeyboardButtonData = ButtonBaseData & {
 	name: string;
-	data?: unknown;
+	callback_data?: unknown;
 };
 
 export type MessageKeyboardButtonUrl = ButtonBaseData & {
@@ -113,7 +113,7 @@ export class MessageKeyboardContext<T> {
 const keyboards = new Map<string, MessageKeyboard<any>>();
 
 const prepareKeyboardRows = (kid: string, rows: MessageKeyboardButtons[]) => {
-	// console.log('prepareKeyboardRows:', kid, rows);
+	console.log('prepareKeyboardRows:', kid, rows);
 
 	return rows.map((buttons) =>
 		buttons.map((button) => {
@@ -151,6 +151,7 @@ export class MessageKeyboard<Layout extends MessageKeyboardLayout> {
 		console.log('handleKeyboardCallbackEvent:', evt);
 
 		const button: ClickedKeyboardButton | ClickedReactKeyboardButton = JSON.parse(evt.data);
+		console.log('logs Array.isArray(button)', Array.isArray(button), 'button', button)
 		if (Array.isArray(button)) {
 			ReactMessage.handleCallbackEvent(
 				new MessageKeyboardContext<ClickedReactKeyboardButton>(
@@ -176,6 +177,7 @@ export class MessageKeyboard<Layout extends MessageKeyboardLayout> {
 	};
 
 	constructor(private init: MessageKeyboardInit<Layout>) {
+		console.log('logs in MessageKeyboard constructor')
 		this.id = `${init.id || ++nextId}`;
 		this.layout = Object.entries(init.layout).reduce((layout, [key, rows]) => {
 			layout[key] = (...args: any[]) => prepareKeyboardRows(this.id, (rows as any)(...args));

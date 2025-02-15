@@ -7,9 +7,9 @@ import {
 	Message,
 	MessagePatch,
 	MessageSendResult,
-} from '../bot/bot';
-import type {ChatUpdate} from '../bot/types';
-import {prepareMessage, verbose} from '../bot/util';
+} from '../bot';
+import type {ChatUpdate} from '../types';
+import {prepareMessage, verbose} from '../util';
 import {vkEventToChatUpdate} from './processing';
 import type {VKChatInfo, VKEvent} from './types';
 

@@ -7,8 +7,8 @@ import {
 	MemberAddResult,
 	Message,
 	MessagePatch,
-} from '../bot/bot';
-import type {ChatUpdate} from '../bot/types';
+} from '../bot';
+import type {ChatUpdate} from '../types';
 import {telegramUpdateToChatUpdate} from './processing';
 import type {TelegramResponse, TelegramUpdate} from './types';
 
@@ -35,7 +35,10 @@ export class TelegramBot extends CoreBot {
 	}
 
 	public override async sendMessage(message: Message) {
-		console.log('logs in sendMessage message', message)
+		console.log('logs in sendMessage message', message, 'message.format', message.format, ' keyboard', JSON.stringify(message.keyboard))
+		const inlineKeyboard = {
+			inline_keyboard: message.keyboard
+		}
 		const {error, data} = await this.call<{
 			ok: boolean;
 			result: {
@@ -44,9 +47,11 @@ export class TelegramBot extends CoreBot {
 		}>('post', 'sendMessage', {
 			chat_id: message.to,
 			text: message.body,
-			// parse_mode: message.format,
+			reply_markup: JSON.stringify(inlineKeyboard),
+			parse_mode: message.format,
 			reply_to_message_id: message.replyTo,
 		});
+
 
 		if (error) {
 			return {
@@ -92,18 +97,21 @@ export class TelegramBot extends CoreBot {
 	}
 
 	public override async getUpdates(options: BotUpdatesOptions) {
-		console.log('logs getUpdates');
+		console.log('bots in telegramm getUpdates this.lastUpdated', this.lastUpdated);
 		const {data} = await this.call<TelegramResponse<TelegramUpdate[]>>('post', 'getUpdates', {
 			offset: this.lastUpdated,
 		});
+
+		console.log('bots in telegramm data this.lastUpdated',this.lastUpdated, 'data', JSON.stringify(data));
 
 		if (!data) {
 			return [];
 		}
 
 		return data.result.reduce((updates, raw) => {
-			const update = this.parseUpdate(telegramUpdateToChatUpdate, raw, options);
 
+			const update = this.parseUpdate(telegramUpdateToChatUpdate, raw, options);
+			console.log('logs response raw', JSON.stringify(raw), 'update', update)
 			if (update) {
 				updates.push(update);
 			}

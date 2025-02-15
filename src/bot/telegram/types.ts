@@ -4,8 +4,7 @@ export type TelegramResponse<R> = {
 };
 
 export type TelegramUpdate =
-	// Updates
-	TelegramUpdateMessage | TelegramUpdateChannelPost | TelegramUpdateChatMember;
+	TelegramUpdateMessage | TelegramUpdateChannelPost | TelegramUpdateChatMember | TelegramUpdateCallback;
 
 export type TelegramUpdateMessage = {
 	update_id: number;
@@ -14,7 +13,7 @@ export type TelegramUpdateMessage = {
 		| TelegramUpdateMessageGroupChatCreated
 		| TelegramUpdateMessageNewChatPhoto
 		| TelegramUpdateMessageLeftChatMember
-		| TelegramUpdateMessageNewChatMember;
+		| TelegramUpdateMessageNewChatMember
 };
 
 export type TelegramUpdateMessageText = {
@@ -40,6 +39,21 @@ export type TelegramUpdateMessageNewChatPhoto = {
 	from: TelegramUser;
 	chat: TelegramChatGroup;
 	new_chat_photo: unknown[];
+};
+
+export type TelegramUpdateCallback = {
+	update_id: number;
+	callback_query: TelegramUpdateCallbackText
+};
+
+export type TelegramUpdateCallbackText = {
+	message: {
+		message_id: number;
+		date: number;
+		chat: TelegramChatGroup;
+		from: TelegramUser;
+	}
+	data: string;
 };
 
 export type TelegramUpdateMessageNewChatMember = {

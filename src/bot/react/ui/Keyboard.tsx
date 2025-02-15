@@ -39,7 +39,9 @@ export const Keyboard = (props: KeyboardProps) => {
 	keyboard.length = 0;
 	keyboardHandlers.length = 0;
 
-	return <div>{React.Children.toArray(props.children)}</div>;
+	console.log('logs props.children', props.children, 'React.Children.toArray(props.children)', React.Children.toArray(props.children))
+
+	return <div>{'ops2'}{React.Children.toArray(props.children)}</div>;
 };
 
 // const toText = ({children}: KeyboardButtonProps) => {
@@ -82,7 +84,7 @@ const Button: React.FC<KeyboardButtonProps> = (props) => {
 			name: undefined as any,
 			text: props.value,
 			type: props.type,
-			data: [message.ns, initialProps, hooksState, keyboardHandlers.push(props.onClick) - 1],
+			callback_data: [message.ns, initialProps, hooksState, keyboardHandlers.push(props.onClick) - 1].join('.'),
 		});
 	}
 
@@ -96,3 +98,14 @@ Keyboard.Row.displayName = 'Keyboard.Row';
 
 Keyboard.Button = Button;
 Keyboard.Button.displayName = 'Keyboard.Button';
+
+export const urlButton = <Keyboard.Button
+	value="Open URL"
+	url="https://example.com"
+	type="primary" />
+
+export const counterButton = <Keyboard.Button
+	value="counter"
+	// type="primary"
+	onClick={()=>{console.log('logs on click')}}
+/>

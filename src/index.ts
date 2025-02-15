@@ -1,46 +1,32 @@
 import {scheduleJob} from "node-schedule";
-import {Github} from "./repository/Github";
 import {Config} from "./config/Config";
-import {logger, userDescription} from "./logger/logger";
-import {DiscordClient} from "./repository/Discord";
-import i18next from "i18next";
-import Backend from "i18next-fs-backend";
-import en from "../translations/translations.en.json";
-import fr from "../translations/translations.fr.json";
-import es from "../translations/translations.es.json";
 import {Communicator} from './bot/communicator';
 
 import {getDefaultApiToken} from "./bot/env";
 import {assignReviewers, MR_URL} from "./reviewers";
+import {ReactMessage} from "./bot/react/core/message/message";
+import {TextMessage} from "./bot/react/core/message/error";
+import {Text} from "./bot/react/ui/Text";
+import {Form, FormDataType, formItemElement, FormItemEx} from "./bot/react/ui/Form";
+import {
+    counterButton,
+    fu,
+    Keyboard,
+    KeyboardButtonElement,
+    KeyboardRowElement,
+    urlButton
+} from "./bot/react/ui/Keyboard";
+import axios from "axios";
+
+import express from "express";
+const PORT = 3000;
+
+const app = express();
+app.use(express.json());
+
+const mineAcc = '415887410';
 
 const config = new Config();
-const github = new Github();
-const discordClient = new DiscordClient()
-// Initialize translator
-i18next
-    .use(Backend)
-    .init({
-      lng: 'fr',
-      fallbackLng: "en",
-      debug: false,
-      preload: ['en', 'fr', 'es'],
-      ns: ['translations'],
-      defaultNS: 'translations',
-      backend: {
-        loadPath: 'translations/{{ns}}.{{lng}}.json'
-      },
-      resources: {
-        en: {
-          translations: en
-        },
-        fr: {
-          translations: fr
-        },
-        es: {
-          translations: es
-        }
-      }
-    });
 
 const subscribers: Set<number> = new Set();
 
@@ -95,38 +81,93 @@ const startPolling = async () => {
     }
 };
 
-startPolling()
+// startPolling()
 
 config.parameters.settings.users.map(async user => {
     const communicator = Communicator.getDefault();
-    const mineAcc = '415887410';
-    await communicator.sendMessage([`telegram:${mineAcc}`],
-        `Hi, *%username%*!
-         Message sent via \`Communicator\`
-    `);
+    console.log('logs user', user)
 
-    // Вы можете вызывать assignReviewers, передавая номер PR
-    assignReviewers(MR_URL).catch(console.error);
+    const messageText = "Click the button below to Increment";
+    //
+    const resdeleteWebhook = await axios.get(`https://api.telegram.org/bot${getDefaultApiToken()}/deleteWebhook`);
+    // console.log('logs res deleteWebhook', resdeleteWebhook)
 
-  const githubUsername = await github.getUsername(user.github_token);
+    // Create the inline keyboard structure
+    const inlineKeyboard = {
+        inline_keyboard: [
+            [
+                { text: 'Increment me 3', callback_data: ['click'] }
+            ]
+        ]
+    };
+
+    // send message button with
+    // try {
+    //     const response = await axios.post(`https://api.telegram.org/bot${getDefaultApiToken()}/sendMessage`, {
+    //         chat_id: mineAcc,
+    //         text: messageText,
+    //         reply_markup: JSON.stringify(inlineKeyboard), // convert to JSON string
+    //         parse_mode: 'HTML' // optional: use HTML formatting
+    //     });
+    //
+    //     console.log('Message sent successfully:', response.data);
+    // } catch (error) {
+    //     console.error('Error sending message:', error);
+    // }
+
+
+
+    // send message button with react part
+    // await ReactMessage.describe('urlKeyboard', Keyboard).send(mineAcc,{children: urlButton }, undefined)
+    await ReactMessage.describe('counterButton', Keyboard).send(mineAcc,{children: counterButton }, undefined)
+
+    setTimeout(async ()=> {
+        const result = await communicator.pullUpdates()
+        console.log('bots result after 3 minit of communicator.pullUpdates', result)
+    }, 3000)
+
+    // const reactik = new ReactMessage({
+    //     ns: 'what is it',
+    //     to: mineAcc,
+    //     initialProps: undefined,
+    //     hooksState: [],
+    //     minApplyDelay: 1100,
+    //     // ...init,
+    //     bot: Communicator.getDefault().getProvider('telegram')!,
+    // })
+
+    // await ReactMessage.describe('text', Text).send(mineAcc,{children: 'mineAcc', underline: true}, undefined)
+
+    // const initialData: FormDataType = {
+    //     name: '',
+    //     email: '',
+    // };
+    // await ReactMessage.describe('form', Form).send(mineAcc,{initialData:initialData, children: formItemElement}, undefined)
+
+    // its a way to send messages
+    // await communicator.sendMessage([`telegram:${mineAcc}`],
+    //     `Hi, *%username%*!
+    //      Message sent via \`Communicator\`
+    // `);
+
+    // assignReviewers(MR_URL).catch(console.error);
 
   // todo: reminders
   user.scheduled_notifications.map(async scheduled_notification => {
     // Instantiate schedules
     scheduleJob(scheduled_notification, async function () {
-      logger.info(`Scheduled job triggered: ${scheduled_notification}`);
       let pullRequests = [];
       for (let i = 0; i < user.repositories.length; i++) {
-        const repository = user.repositories[i];
-        const pullRequestsWaitingForReview = await github.getPullRequestsWaitingForReview(repository, githubUsername, user.github_token);
-        if(pullRequestsWaitingForReview.length > 0){
-          pullRequests = pullRequests.concat(pullRequestsWaitingForReview);
-        }
+        // const repository = user.repositories[i];
+        // const pullRequestsWaitingForReview = await github.getPullRequestsWaitingForReview(repository, githubUsername, user.github_token);
+        // if(pullRequestsWaitingForReview.length > 0){
+        //   pullRequests = pullRequests.concat(pullRequestsWaitingForReview);
+        // }
       }
       if (pullRequests.length > 0) {
-        logger.info(`Sending reminder to ${userDescription(user.discord_id, githubUsername)}`)
-
-        pullRequests.map(pullRequest => discordClient.sendMessage(user.discord_id, githubUsername, pullRequest))
+        // logger.info(`Sending reminder to ${userDescription(user.discord_id, githubUsername)}`)
+        //
+        // pullRequests.map(pullRequest => discordClient.sendMessage(user.discord_id, githubUsername, pullRequest))
       }
     });
   });

@@ -1,6 +1,6 @@
 // import {getPlatformCommunicatorScopeConfig} from '../scope.config';
-import {TelegramBot} from '../telegram/bot';
-import {VKTeamsBot} from '../vkteams/bot';
+import {TelegramBot} from './telegram/bot';
+import {VKTeamsBot} from './vkteams/bot';
 import type {
 	APIResult,
 	BotInit,
@@ -242,6 +242,8 @@ export class Communicator {
 		if (!bot.isAvailable()) {
 			return [];
 		}
+
+		console.log('bot in getUpdates')
 
 		return await bot.getUpdates({
 			...options,

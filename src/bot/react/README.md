@@ -1,6 +1,6 @@
 React Message
 -------------
-Реактивыйне сообщения
+Реактивные сообщения
 
 ---
 
@@ -32,7 +32,7 @@ const message = await counterMessage(props);
 
 ```jsx
 import * as React from 'react';
-import { InputText, Keyboard, Message, sendReactInteractiveMessage, sendReactStaticMessage, Title, useMessageContext } from '@mail-core/communicator/react';
+import { InputText, Keyboard, Message, sendReactInteractiveMessage, sendReactStaticMessage, Title, useMessageContext } from 'bot/react';
 
 const Welcome = () => {
 	const [step, setStep] = React.useState('start');
@@ -138,7 +138,7 @@ const Settings = () => {
 
 ```tsx
 import * as React from 'react';
-import {sendReactStaticMessage, Message, Title} from '@mail-core/communicator/react';
+import {sendReactStaticMessage, Message, Title} from 'bot/react';
 
 const Welcome = () => {
 	return (

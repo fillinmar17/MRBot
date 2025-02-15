@@ -1,9 +1,9 @@
 import {createOpenPromise} from 'o-promise';
 import {createElement, FC} from 'react';
 
-import type {CoreBot, Message} from '../../../bot/bot';
-import {Communicator} from '../../../bot/communicator';
-import type {MessageKeyboardButtons, MessageKeyboardContext} from '../../../bot/keyboard';
+import type {CoreBot, Message} from '../../../bot';
+import {Communicator} from '../../../communicator';
+import type {MessageKeyboardButtons, MessageKeyboardContext} from '../../../keyboard';
 import {Form as UIForm, InputText as UIInputText} from '../../ui/Form';
 import {
 	ClickedReactKeyboardButton,
@@ -91,6 +91,8 @@ export class ReactMessage {
 	static describe<T>(ns: string, component: ReactMessageComponent<T>) {
 		ReactMessage.components.set(ns, component);
 
+		console.log('react describe')
+
 		return {
 			send: async (
 				to: string,
@@ -104,7 +106,7 @@ export class ReactMessage {
 					hooksState: [],
 					minApplyDelay: 1100,
 					...init,
-					bot: init.bot ?? Communicator.getDefault().getProvider('vkteams')!,
+					bot: init.bot ?? Communicator.getDefault().getProvider('telegram')!,
 				});
 
 				return message.apply('force');
@@ -305,6 +307,8 @@ export class ReactMessage {
 					return;
 				}
 
+				console.log('logs this.context?.keyboard', JSON.stringify(this.context?.keyboard), 'this.hostContainer', this.hostContainer, 'containerToString(this.hostContainer!)', containerToString(this.hostContainer!) )
+
 				const msg: Message = {
 					to,
 					replyTo,
@@ -329,6 +333,7 @@ export class ReactMessage {
 					}
 				}
 
+				console.log('log msg', msg)
 				const result = await withRetry(() => bot.sendMessage(msg));
 
 				if (!result.error) {

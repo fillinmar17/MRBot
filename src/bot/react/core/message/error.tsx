@@ -16,3 +16,9 @@ export class ErrorBoundary extends React.Component<{children?: React.ReactNode},
 		return this.props.children;
 	}
 }
+
+export const TextMessage = () => (
+	<div className="text-message">
+		<p> It`s react babe </p>
+	</div>
+);

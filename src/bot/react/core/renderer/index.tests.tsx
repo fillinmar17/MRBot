@@ -17,14 +17,6 @@ const App = () => {
 	return <button onClick={handleClick}>Counter: {counter}</button>;
 };
 
-// const toString = (el: VirtualInstance | VirtualTextInstance): string => {
-// 	if ('text' in el) {
-// 		return el.text;
-// 	}
-
-// 	return `<${el.type}>${el.entries.map(toString).join('')}</${el.type}>`;
-// };
-
 it('renderer', async () => {
 	const result = await render(<App />, {
 		entries: [],

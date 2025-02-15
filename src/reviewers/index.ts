@@ -1,13 +1,9 @@
-// import axios from 'axios';
-import {getDefaultApiToken} from "../bot/env";
 import axios from "axios";
+import {CodeOwner, getCodeOwnership, getCodeOwnershipInfo} from "./getCodeOwnership";
 
-// todo: hide it
-const GITHUB_TOKEN = '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';  // замените на свой токен
-// const REPO_OWNER = 'owner';                  // замените на владельца репозитория
-// const REPO_NAME = 'repository';              // замените на имя репозитория
+export const GITHUB_TOKEN = process.env['GITHUB_TOKEN'] || '';
 
-export const MR_URL = 'https://github.com/fillinmar17/MRBot/pull/1';
+export const MR_URL = 'https://github.com/fillinmar17/ReposForMR/pull/1';
 
 interface Reviewer {
     username: string;
@@ -19,39 +15,27 @@ export type MRInfoType = {
     REPO_NAME: string,
     PR_NUMBER: string,
 }
-const getMRInfo = (mr: string): MRInfoType | undefined =>{
+
+const getMRInfoFromUrl = (mr: string): MRInfoType | undefined =>{
     const regex = /https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/;
     const matches = mr.match(regex);
-    console.log('logs matches', matches)
 
-    if (matches?.length >= 4) {
-        // Extract the REPO_OWNER, REPO_NAME, and prNumber from the matches
-        const REPO_OWNER = matches[1]; // The first captured group is the repository owner
-        const REPO_NAME = matches[2];   // The second captured group is the repository name
-        const PR_NUMBER = matches[3];     // The third captured group is the pull request number
-
-        // Log the outcomes or use them as needed
-        console.log(`REPO_OWNER: ${REPO_OWNER}`);
-        console.log(`REPO_NAME: ${REPO_NAME}`);
-        console.log(`prNumber: ${PR_NUMBER}`);
+    if (matches && matches.length >= 4) {
+        const REPO_OWNER = matches[1];
+        const REPO_NAME = matches[2];
+        const PR_NUMBER = matches[3];
         return { REPO_OWNER,REPO_NAME, PR_NUMBER}
     } else {
+        // todo: throw error
         // console.error("The URL format is invalid.");
         return
     }
 }
 
-async function getPullRequest(mrInfo: MRInfoType) {
-    const {REPO_OWNER, REPO_NAME ,PR_NUMBER} = mrInfo
-    const response = await axios.get(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}`, {
-        headers: {
-            Authorization: `token ${GITHUB_TOKEN}`,
-        },
-    });
-    console.log('logs response.data', response.data)
-    return response.data;
+export type MRFilesTypes = {
+    filename: string,
+    status: string,
 }
-
 async function getChangedFiles(mrInfo: MRInfoType) {
     const {REPO_OWNER, REPO_NAME ,PR_NUMBER} = mrInfo
     const response = await axios.get(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}/files`, {
@@ -59,87 +43,192 @@ async function getChangedFiles(mrInfo: MRInfoType) {
             Authorization: `token ${GITHUB_TOKEN}`,
         },
     });
-
-    console.log('logs in getChangedFiles response.data', response.data)
-    return response.data;
+    return response.data as MRFilesTypes[];
 }
 
-async function getReviewersForFiles(changedFiles: any[]) {
-    const fileOwners: Record<string, string[]> = {};
-    // Здесь вы можете использовать свою логику для определения владельцев файлов
-    // Например, читая файл CODEOWNERS или другое местоположение.
+type CommitAuthorType = {
+    name: string,
+    email: string,
+    date: string,
+}
 
-    // Примерная логика:
-    for (let file of changedFiles) {
-        // todo: insert code here
-        // Определите владельца файла (это требует настройки вашей логики)
-        // const owners = /* ваша логика для нахождения владельцев файлов */;
-        // fileOwners[file.filename] = owners;
+type CommitType = {
+    author: CommitAuthorType,
+    message: string,
+}
+
+type FilesInfoType = {
+    node_id: string,
+    commit: CommitType
+}
+
+async function getAuthorsOfChangedFiles(mrInfo: MRInfoType, file: string) {
+    const {REPO_OWNER, REPO_NAME} = mrInfo
+    const response = await axios.get(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/commits?path=${file}`, {
+        headers: {
+            Authorization: `token ${GITHUB_TOKEN}`,
+        },
+    });
+    return response.data as FilesInfoType[];
+}
+
+interface Collaborator {
+    login: string;
+    id: number;
+    avatar_url: string;
+    html_url: string;
+}
+async function getCollaborators(mrInfo: MRInfoType): Promise<Collaborator[]|undefined>  {
+    const {REPO_OWNER, REPO_NAME} = mrInfo
+    try {
+        const response = await axios.get<Collaborator[]>(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/collaborators`, {
+            headers: {
+                Authorization: `token ${GITHUB_TOKEN}`,
+                Accept: 'application/vnd.github.v3+json',
+            },
+        });
+
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            console.error(`Error fetching collaborators: ${error.message}`);
+        } else {
+            console.error(`Unexpected error: ${error}`);
+            // throw new Error('An unexpected error occurred');
+        }
+        return
     }
-    return fileOwners;
+}
+
+const selectBestReviewers = (editorsTheSameFile: Record<string, number>, codeOwners?: CodeOwner[], collaborators?: Collaborator[]): string[] => {
+    if (!collaborators){
+        return []
+    }
+    const uniqueLoginReviewers = new Set<string>();
+    const futureReviewers: string[] = []
+
+    codeOwners?.forEach(owner => {
+        owner.name && uniqueLoginReviewers.add(owner.name);
+    });
+
+    Object.keys(editorsTheSameFile).forEach(login => {
+        uniqueLoginReviewers.add(login);
+    });
+    const collaboratorLogins = new Set<string>(collaborators.map(collaborator => collaborator.login));
+    console.log('logs collaboratorLogins', collaboratorLogins, 'uniqueLoginReviewers', uniqueLoginReviewers, 'editorsTheSameFile', codeOwners)
+
+    uniqueLoginReviewers.forEach(login => {
+        if (collaboratorLogins.has(login)) {
+            futureReviewers.push(login);
+        }
+    })
+
+    console.log('logs futureReviewers', futureReviewers)
+
+    return futureReviewers;
+}
+
+async function getReviewersForFiles(mrInfo: MRInfoType, changedFiles: MRFilesTypes[], codeOwners: CodeOwner[] | undefined) {
+    const editorsTheSameFile: Record<string, number> = {};
+    for (const changedFile of changedFiles) {
+        const commits = await getAuthorsOfChangedFiles(mrInfo, changedFile.filename)
+        commits.forEach(commit => {
+            console.log('logs commit.commit.author', commit.commit.author, 'changedFile.filename', changedFile.filename)
+            const author = commit.commit.author.name;
+            if (author) {
+                editorsTheSameFile[author] = (editorsTheSameFile[author] || 0) + 1;
+            }
+        });
+    }
+
+    const collaborators = await getCollaborators(mrInfo);
+    return selectBestReviewers(editorsTheSameFile, codeOwners, collaborators)
 }
 
 async function getCurrentReviewers(MRInfo: MRInfoType) {
-    const {REPO_OWNER, REPO_NAME ,PR_NUMBER} = MRInfo
+    const {REPO_OWNER, REPO_NAME ,PR_NUMBER} = MRInfo;
     const response = await axios.get(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}/requested_reviewers`, {
         headers: {
             Authorization: `token ${GITHUB_TOKEN}`,
         },
     });
-    console.log('logs response.data', response.data)
+
     return response.data.users;
 }
 
-async function getReviewerLoad(reviewers: Reviewer[]) {
-    const loadMap: Record<string, number> = {};
-    for (let reviewer of reviewers) {
-        // Здесь вы можете получить количество открытых PR для каждого ревьюера
-        // Например, отправить запрос на получение всех открытых PR и
-        // отфильтровать по автору.
-        loadMap[reviewer.username] = reviewer.load;
+// todo: рассчитать нагрузку ревьюеров
+// async function getReviewerLoad(reviewers: Reviewer[]) {
+//     const loadMap: Record<string, number> = {};
+//     for (let reviewer of reviewers) {
+//         // todo
+//         // Здесь вы можете получить количество открытых PR для каждого ревьюера
+//         // Например, отправить запрос на получение всех открытых PR и
+//         // отфильтровать по автору.
+//         loadMap[reviewer.username] = reviewer.load;
+//     }
+//     return loadMap;
+// }
+
+export const addReviewersToPR = async (mrInfo: MRInfoType, selectedReviewers: string[]):Promise<string[]|undefined> => {
+    const {REPO_OWNER, REPO_NAME ,PR_NUMBER} = mrInfo;
+    console.log('logs trying to add Reviewers to PR', selectedReviewers)
+    try {
+        const response = await axios.post(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}/requested_reviewers`, {
+            reviewers: selectedReviewers
+            // reviewers: ['vasiaPupkin52']
+        }, {
+            headers: {
+                Authorization: `token ${GITHUB_TOKEN}`,
+                Accept: 'application/vnd.github.v3+json',
+            },
+        });
+        // todo: уведомить что успешно назначили ревьюеров
+        console.log('logs successfuly added reviewers', response.data.requested_reviewers.map((reviewers)=>reviewers.login));
+        return response.data.requested_reviewers.map((reviewers)=>reviewers.login) as string[]
+    } catch(error) {
+        // todo: уведомить что что-то пошло не так
+        console.error('logs error',  error);
+        return undefined;
     }
-    return loadMap;
 }
 
+// todo: обернуть все в трай/кетч
 export async function assignReviewers(mr: string) {
-    const mrInfo = getMRInfo(mr)
+    const mrInfo = getMRInfoFromUrl(mr)
     if (!mrInfo) {
-        // throw error
+        // todo: уведомить что неверная ссылка
         return;
     }
-    const {REPO_OWNER, REPO_NAME ,PR_NUMBER} = mrInfo
-    // const pullRequest = await getPullRequest(mrInfo);
     const changedFiles = await getChangedFiles(mrInfo);
-    const fileOwners = await getReviewersForFiles(changedFiles);
+
+    const codeOwnershipEntries = await getCodeOwnershipInfo(mrInfo)
+
+    const codeOwners = await getCodeOwnership(changedFiles, codeOwnershipEntries);
+
+    const futureReviewers = await getReviewersForFiles(mrInfo, changedFiles, codeOwners);
+    // todo: use it
     const currentReviewers = await getCurrentReviewers(mrInfo);
-    console.log('logs currentReviewers', currentReviewers, 'changedFiles', changedFiles, 'fileOwners', fileOwners)
 
-    const reviewers: Reviewer[] = currentReviewers.map((user) => ({
-        username: user.login,
-        load: 0, // Здесь вам нужно будет получить фактическую нагрузку ревьюеров
-    }));
+    const addedReviewers = await addReviewersToPR(mrInfo, futureReviewers);
 
-    const reviewerLoad = await getReviewerLoad(reviewers);
-    const selectedReviewers: string[] = [];
 
-    // Логика для равномерного распределения нагрузки среди ревьюеров
-    for (const file in fileOwners) {
-        for (const owner of fileOwners[file]) {
-            if (!selectedReviewers.includes(owner)) {
-                selectedReviewers.push(owner);
-                // Можно добавить логику для регулирования нагрузки
-                break; // Обрабатываем первого подходящего ревьюера
-            }
-        }
+    if (addedReviewers && addedReviewers.length && codeOwnershipEntries && codeOwnershipEntries.codeOwnership && codeOwnershipEntries.codeOwnership.length) {
+        const {codeOwnership} = codeOwnershipEntries
+        const owners = codeOwnership
+            .flatMap(entry => entry.owners)
+            .filter((owner): owner is CodeOwner => owner !== undefined);
+
+        const uniqueOwners = new Set(owners);
+
+        addedReviewers.forEach(reviewer => {
+            uniqueOwners.forEach(owner => {
+                if (owner.name === reviewer) {
+                    console.log('send telegramm message to owner', owner.name)
+                    // todo: send notification
+                }
+            })
+        })
     }
 
-    // Вызов API для назначения ревьюеров
-    await axios.post(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}/requested_reviewers`, {
-        reviewers: selectedReviewers,
-    }, {
-        headers: {
-            Authorization: `token ${GITHUB_TOKEN}`,
-        },
-    });
 }
 

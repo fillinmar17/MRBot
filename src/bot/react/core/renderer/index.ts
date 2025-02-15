@@ -32,6 +32,7 @@ export const containerToString = (
 	container: VirtualContainer | VirtualInstance | VirtualTextInstance,
 ): string => {
 	if ('text' in container) {
+
 		return container.text;
 	}
 

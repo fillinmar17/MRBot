@@ -1,17 +1,17 @@
-import type {
-	Chat,
+import {
+	Chat, ChatCallbackEvent,
 	ChatChangePhotoEvent,
 	ChatMemberEvent,
 	ChatMessageEvent,
 	ChatPostEvent,
 	ChatUpdate,
 	ChatUser,
-} from '../core/types';
-import type {
+} from '../types';
+import {
 	TelegramChatChannel,
 	TelegramChatGroup,
 	TelegramChatPrivate,
-	TelegramUpdate,
+	TelegramUpdate, TelegramUpdateCallbackText,
 	TelegramUpdateChannelPost,
 	TelegramUpdateChatMember,
 	TelegramUpdateMessage,
@@ -39,8 +39,24 @@ function telegramChatToChat(raw: TelegramChatPrivate | TelegramChatGroup | Teleg
 	};
 }
 
+function telegramCallbackMessageToChatUpdate(
+	raw: TelegramUpdateCallbackText,
+): ChatCallbackEvent  {
+	console.log('logs in telegramMessageToChatUpdate raw', raw)
+
+	return {
+		id: `${raw.message.message_id}`,
+		date: new Date(raw.message.date * 1000),
+		chat: telegramChatToChat(raw.message.chat),
+		user: telegramUserToChatUser(raw.message.from),
+		original: raw,
+		data: raw.data,
+		type: 'callback',
+	} as ChatCallbackEvent;
+}
+
 function telegramMessageToChatUpdate(
-	raw: TelegramUpdateMessage['message'],
+	raw: TelegramUpdateMessage['message'] ,
 ): ChatChangePhotoEvent | ChatMessageEvent | ChatMemberEvent | null {
 	const evt = {
 		id: `${raw.message_id}`,
@@ -106,6 +122,10 @@ function telegramMyChatMemberToChatUpdate(raw: TelegramUpdateChatMember['my_chat
 export function telegramUpdateToChatUpdate(raw: TelegramUpdate): ChatUpdate | null {
 	if ('message' in raw) {
 		return telegramMessageToChatUpdate(raw.message);
+	}
+
+	if ('callback_query' in raw) {
+		return telegramCallbackMessageToChatUpdate(raw.callback_query);
 	}
 
 	if ('channel_post' in raw) {
