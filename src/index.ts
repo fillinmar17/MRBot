@@ -4,12 +4,7 @@ import {Communicator} from './bot/communicator';
 import {getDefaultApiToken} from "./bot/env";
 import {ReactMessage} from "./bot/react/core/message/message";
 import axios from "axios";
-
-import express from "express";
 import {Counter} from "./bot/react/examples/Counter";
-
-const app = express();
-app.use(express.json());
 
 const mineAcc = '415887410';
 
@@ -34,7 +29,6 @@ const start = async() =>{
         const result = await communicator.pullUpdates()
         console.log('bots result after 3 minit of communicator.pullUpdates', result)
     }, 3000)
-
 
 // todo: reminders
 // user.scheduled_notifications.map(async scheduled_notification => {
