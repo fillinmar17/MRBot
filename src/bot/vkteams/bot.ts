@@ -9,7 +9,7 @@ import {
 	MessageSendResult,
 } from '../bot';
 import type {ChatUpdate} from '../types';
-import {prepareMessage, verbose} from '../util';
+import {prepareMessage} from '../util';
 import {vkEventToChatUpdate} from './processing';
 import type {VKChatInfo, VKEvent} from './types';
 
@@ -96,7 +96,7 @@ export class VKTeamsBot extends CoreBot {
 			inlineKeyboardMarkup: inlineKeyboard(original),
 		};
 
-		verbose({type: 'log', verbose: original.verbose}, {data});
+		console.log('log sendMessage', {data});
 
 		const result = await this.call<{
 			ok: boolean;
@@ -107,7 +107,7 @@ export class VKTeamsBot extends CoreBot {
 		const error = result.error || result.data?.description;
 
 		if (error) {
-			verbose({type: 'error', verbose: original.verbose}, {error});
+			console.log({type: 'error', verbose: original.verbose}, {error});
 			return {error, data: null};
 		}
 
@@ -251,7 +251,7 @@ export class VKTeamsBot extends CoreBot {
 				},
 			};
 		} catch (error) {
-			verbose('error', 'getChatInfo.chatId:', chatId, error);
+			console.log('error', 'getChatInfo.chatId:', chatId, error);
 			return {error, data: null};
 		}
 	}
@@ -312,7 +312,7 @@ export class VKTeamsBot extends CoreBot {
 			},
 		);
 
-		verbose('log', 'pinMessage:', chatId, msgId, state, data);
+		console.log('log', 'pinMessage:', chatId, msgId, state, data);
 
 		return data!;
 	}
@@ -325,7 +325,7 @@ export class VKTeamsBot extends CoreBot {
 			url,
 		});
 
-		verbose('log', 'sendCallbackResponse:', queryId, data);
+		console.log('log', 'sendCallbackResponse:', queryId, data);
 
 		return !!data?.ok;
 	}
@@ -340,7 +340,7 @@ export class VKTeamsBot extends CoreBot {
 			fileId: id,
 		});
 
-		verbose('log', 'getFileInfo:', id, data);
+		console.log('log', 'getFileInfo:', id, data);
 
 		return data;
 	}

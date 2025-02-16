@@ -2,8 +2,7 @@ import axios from 'axios';
 
 import type {MessageKeyboardButtons} from './keyboard';
 import type {ChatCommand, ChatInfo, ChatUpdate} from './types';
-import {__VERBOSE_FLAGS__, retry, verbose} from './util';
-// import {MessageKeyboard} from "@/bot/my-keyboard";
+import {__VERBOSE_FLAGS__, retry} from './util';
 
 export type BotInit = {
 	/** ID/Имя бота */
@@ -198,7 +197,7 @@ export abstract class CoreBot {
 
 
 		if (update == null) {
-			verbose('log', '[Bot] unknown update:', raw);
+			console.log('log', '[Bot] unknown update:', raw);
 			return null;
 		}
 

@@ -148,27 +148,6 @@ export function prepareMessage(
 	};
 }
 
-let _verbose: undefined | boolean;
-
-function isVerboseEnabled() {
-	if (_verbose == null) {
-		_verbose = process.env['VERBOSE'] === '1' || process.env['VERBOSE'] === 'true';
-	}
-
-	return _verbose;
-}
-
-/** Информация для дебага */
-export function verbose(
-	options: 'error' | 'log' | {type: 'error' | 'log'; verbose?: boolean},
-	...args: unknown[]
-) {
-	// const {type, verbose} = typeof options === 'string' ? {type: options, verbose: false} : options;
-	// if (verbose || isVerboseEnabled()) {
-	// 	getActiveConsole()[type](...args);
-	// }
-}
-
 export type CommunicatorBotInteractiveMessageEnv = {
 	bot: CoreBot;
 	tick: number;
