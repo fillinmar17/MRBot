@@ -1,8 +1,8 @@
-import {ReactMessage} from '../react/core/message/message';
-import type {ClickedReactKeyboardButton} from '../react/ui/Keyboard';
+import {ReactMessage} from './react/core/message/message';
 import type {CoreBot, Message, MessageSendResult} from './bot';
 import type {Communicator} from './communicator';
 import type {Chat, ChatCallbackEvent, ChatUser} from './types';
+import {ClickedReactKeyboardButton} from "../bot/react/ui/Keyboard";
 
 export type MessageKeyboardButtons = Array<MessageKeyboardButtonData | MessageKeyboardButtonUrl>;
 
@@ -32,7 +32,7 @@ export type MessageKeyboardInit<Layout extends MessageKeyboardLayout> = {
 
 let nextId = 0;
 
-type ClickedKeyboardButton = {
+export type ClickedKeyboardButton = {
 	kid: string;
 	name: string;
 	data: unknown;
@@ -113,7 +113,7 @@ export class MessageKeyboardContext<T> {
 const keyboards = new Map<string, MessageKeyboard<any>>();
 
 const prepareKeyboardRows = (kid: string, rows: MessageKeyboardButtons[]) => {
-	// console.log('prepareKeyboardRows:', kid, rows);
+	console.log('prepareKeyboardRows:', kid, rows);
 
 	return rows.map((buttons) =>
 		buttons.map((button) => {
@@ -150,33 +150,43 @@ export class MessageKeyboard<Layout extends MessageKeyboardLayout> {
 	) => {
 		console.log('handleKeyboardCallbackEvent:', evt);
 
-		const button: ClickedKeyboardButton | ClickedReactKeyboardButton = JSON.parse(evt.data);
-		if (Array.isArray(button)) {
+		const callbackData: ClickedKeyboardButton | ClickedReactKeyboardButton = JSON.parse(evt.data);
+		console.log('logs callbackData', callbackData)
+		if ('id' in callbackData && 'handlerIndex' in callbackData) {
+			console.log('This is a React component keyboard callback', ReactMessage.all, 'evt.id', evt.id, 'ReactMessage.all.get(evt.id)', ReactMessage.all.get(evt.id))
+			console.log('logs ReactMessage.all.keys', ReactMessage.all.keys())
+			const message = ReactMessage.all.get(Number(evt.id));
+			if (!message) {
+				console.log('Message not found')
+				// throw new Error('Message not found');
+				return;
+			}
+
+			const handler = message.context?.keyboardHandlers[callbackData.handlerIndex];
+			console.log('logs handler found', !!handler)
+			if (handler) {
+				await handler(evt);
+				return;
+			}
+		}
+
+		if (Array.isArray(callbackData)) {
 			ReactMessage.handleCallbackEvent(
 				new MessageKeyboardContext<ClickedReactKeyboardButton>(
 					bot,
 					evt,
-					button as ClickedReactKeyboardButton,
+					callbackData as ClickedReactKeyboardButton,
 				),
 			);
 			return;
 		}
-
-		if ('kid' in button) {
-			const keyboard = keyboards.get(button.kid);
-			if (!keyboard) {
-				bot.sendCallbackResponse(evt.id, 'Упс, контроллер клавы не найден 🤷🏻‍♂️');
-				return;
-			}
-
-			const ctx = new MessageKeyboardContext<ClickedKeyboardButton>(bot, evt, button);
-
-			keyboard.handle(ctx, button);
-		}
 	};
 
 	constructor(private init: MessageKeyboardInit<Layout>) {
+		console.log('logs in MessageKeyboard constructor')
 		this.id = `${init.id || ++nextId}`;
+
+		console.log('logs this.id', this.id)
 		this.layout = Object.entries(init.layout).reduce((layout, [key, rows]) => {
 			layout[key] = (...args: any[]) => prepareKeyboardRows(this.id, (rows as any)(...args));
 			return layout;
@@ -186,6 +196,7 @@ export class MessageKeyboard<Layout extends MessageKeyboardLayout> {
 	}
 
 	private handle(ctx: MessageKeyboardContext<ClickedKeyboardButton>, button: ClickedKeyboardButton) {
+		console.log('handle keyboard:', button, 'ctx', ctx, 'this', this);
 		this.init.handle.call(this, ctx, button);
 	}
 }

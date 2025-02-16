@@ -3,6 +3,7 @@ import axios from 'axios';
 import type {MessageKeyboardButtons} from './keyboard';
 import type {ChatCommand, ChatInfo, ChatUpdate} from './types';
 import {__VERBOSE_FLAGS__, retry, verbose} from './util';
+// import {MessageKeyboard} from "@/bot/my-keyboard";
 
 export type BotInit = {
 	/** ID/Имя бота */
@@ -46,6 +47,7 @@ export type Message = {
 
 	/** Inline Keyboard */
 	keyboard?: MessageKeyboardButtons[];
+	// inlineKeyboard?: MessageKeyboard
 
 	verbose?: boolean;
 };
@@ -130,7 +132,6 @@ export abstract class CoreBot {
 	/** Работа с API */
 	protected async call<R>(type: 'get' | 'post', method: string, params: Record<string, unknown>) {
 		const url = this.url(method);
-		console.log('logs url', url, 'method', method, 'type', type)
 
 		try {
 			const result = await retry({
@@ -195,7 +196,6 @@ export abstract class CoreBot {
 			options.handleRawUpdate?.(raw);
 		} catch {}
 
-		verbose('log', 'parseUpdate', raw);
 
 		if (update == null) {
 			verbose('log', '[Bot] unknown update:', raw);
@@ -246,7 +246,7 @@ export abstract class CoreBot {
 	public abstract url(method: string): string;
 
 	/** Отправка ботом сообщения  */
-	public abstract sendMessage(message: Message): Promise<MessageSendResult>;
+	public abstract sendMessage(message: Message, id?: string): Promise<MessageSendResult>;
 
 	/** Отправка ботом сообщения  */
 	public abstract editMessage(id: string, chatId: string, patch: MessagePatch): Promise<MessageSendResult>;

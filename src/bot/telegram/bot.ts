@@ -7,8 +7,8 @@ import {
 	MemberAddResult,
 	Message,
 	MessagePatch,
-} from '../bot/bot';
-import type {ChatUpdate} from '../bot/types';
+} from '../bot';
+import type {ChatUpdate} from '../types';
 import {telegramUpdateToChatUpdate} from './processing';
 import type {TelegramResponse, TelegramUpdate} from './types';
 
@@ -34,19 +34,41 @@ export class TelegramBot extends CoreBot {
 		return `${this.baseUrl}${this.init.token}/${method}`;
 	}
 
-	public override async sendMessage(message: Message) {
-		console.log('logs in sendMessage message', message)
+	public override async sendMessage(message: Message, id?: number) {
+		const sendMessageMethod = 'sendMessage';
+		const editMessageMethod = 'editMessageText';
+		let reply_markup: string = '';
+		if (message.keyboard) {
+			const inlineKeyboardArray = message.keyboard.map(row =>
+				row.map(button => ({
+					text: button.text,
+					callback_data: button.data
+				}))
+			);
+
+			reply_markup = JSON.stringify({
+				inline_keyboard: inlineKeyboardArray
+			});
+		}
+		if (message.keyboard) {
+			console.log('logs keyboard', message.keyboard)
+		}
+		console.log('logs in sendMessage message', message, 'message.format', message.format, ' keyboard', JSON.stringify(message.keyboard))
+
 		const {error, data} = await this.call<{
 			ok: boolean;
 			result: {
 				message_id: number;
 			};
-		}>('post', 'sendMessage', {
+		}>('post', id ? editMessageMethod :sendMessageMethod, {
 			chat_id: message.to,
 			text: message.body,
-			// parse_mode: message.format,
+			reply_markup: reply_markup,
+			parse_mode: message.format,
 			reply_to_message_id: message.replyTo,
+			message_id: id
 		});
+
 
 		if (error) {
 			return {
@@ -55,15 +77,17 @@ export class TelegramBot extends CoreBot {
 			};
 		}
 
+		console.log('logs data', data)
 		return {
 			error: null,
 			data: {
-				id: `${data!.result.message_id}`,
+				id: data!.result.message_id,
 			},
 		};
 	}
 
 	public override editMessage(_id: string, _chatId: string, _patch: MessagePatch) {
+		// use send message
 		return Promise.reject({error: 'Not supported "editMessage"'});
 	}
 
@@ -92,18 +116,20 @@ export class TelegramBot extends CoreBot {
 	}
 
 	public override async getUpdates(options: BotUpdatesOptions) {
-		console.log('logs getUpdates');
+		console.log('bots in telegramm getUpdates this.lastUpdated', this.lastUpdated);
 		const {data} = await this.call<TelegramResponse<TelegramUpdate[]>>('post', 'getUpdates', {
 			offset: this.lastUpdated,
 		});
+
+		console.log('bots in telegramm data this.lastUpdated',this.lastUpdated, 'data', JSON.stringify(data));
 
 		if (!data) {
 			return [];
 		}
 
 		return data.result.reduce((updates, raw) => {
-			const update = this.parseUpdate(telegramUpdateToChatUpdate, raw, options);
 
+			const update = this.parseUpdate(telegramUpdateToChatUpdate, raw, options);
 			if (update) {
 				updates.push(update);
 			}

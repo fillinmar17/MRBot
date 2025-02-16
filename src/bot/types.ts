@@ -82,6 +82,7 @@ export interface ChatCallbackEvent extends ChatEvent<'callback'> {
 	data: string;
 	user: ChatUser;
 	message: Required<Pick<ChatMessageEvent, 'id' | 'body' | 'format'>>;
+	update_id: number;
 }
 
 export interface ChatCommandEvent extends ChatEvent<'command'> {

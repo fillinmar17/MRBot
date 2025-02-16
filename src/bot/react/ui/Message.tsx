@@ -4,7 +4,7 @@ import type {ReactMessageContext, ReactMessageContextInternal} from '../core/mes
 import type {TextProps} from './Text';
 import {Title} from './Title';
 
-/** Core-конекст для работы с BotAPI */
+/** Core-контекст для работы с BotAPI */
 const MessageContext = React.createContext<ReactMessageContext>({} as any);
 
 export type MessageContextProviderProps = {
@@ -40,14 +40,14 @@ export const useReactMessageGroupContext = () => {
 	return React.useContext(MessageGroupContext)!;
 };
 
-/** Свойсва сообщения */
+/** Свойства сообщения */
 export type MessageProps = {
 	id?: string;
 	title?: TextProps['children'];
 	children: React.ReactNode;
 };
 
-/** Основной контекйнер сообщения */
+/** Основной контейнер сообщения */
 export const Message = (props: MessageProps) => {
 	const group = useReactMessageGroupContext();
 	if (group && group.activeId !== props.id) {

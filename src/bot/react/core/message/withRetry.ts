@@ -1,4 +1,4 @@
-import type {MessageSendResult} from '../../../core/bot';
+import type {MessageSendResult} from '../../../bot';
 
 /** Минимальная задержка при повторе */
 const MIN_RETRY_SLEEP = 1100;
@@ -6,7 +6,7 @@ const MIN_RETRY_SLEEP = 1100;
 /** Текущая задержка перед повтором */
 let currentRetrySleep = MIN_RETRY_SLEEP;
 
-/** Очередб запросов */
+/** Очередь запросов */
 let queue = Promise.resolve<void>(undefined);
 
 export const withRetry = (task: () => Promise<MessageSendResult>): Promise<MessageSendResult> => {

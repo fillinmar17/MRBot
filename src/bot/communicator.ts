@@ -1,6 +1,6 @@
 // import {getPlatformCommunicatorScopeConfig} from '../scope.config';
-import {TelegramBot} from '../telegram/bot';
-import {VKTeamsBot} from '../vkteams/bot';
+import {TelegramBot} from './telegram/bot';
+import {VKTeamsBot} from './vkteams/bot';
 import type {
 	APIResult,
 	BotInit,
@@ -243,6 +243,8 @@ export class Communicator {
 			return [];
 		}
 
+		console.log('bot in getUpdates')
+
 		return await bot.getUpdates({
 			...options,
 			handleUpdate: (update) => {
@@ -311,6 +313,7 @@ export class Communicator {
 	/** Обработка обновления от бота */
 	private processingChatUpdate(provider: string, bot: CoreBot, update: ChatUpdate) {
 		if (update.type === 'callback') {
+			console.log('logs processingChatUpdate')
 			MessageKeyboard.handleCallbackEvent(this, bot, update);
 			return;
 		}
