@@ -61,7 +61,7 @@ export type ReactMessageInit = {
 	replyTo?: string;
 	/** Бот используемый для отправки */
 	bot: Pick<CoreBot, 'sendMessage' | 'editMessage' | 'deleteMessage'>;
-	/** Инзачаньные props компонента */
+	/** Инзачальные props компонента */
 	initialProps: any;
 	/** Минимальное время перед применением изменений */
 	minApplyDelay?: number;
@@ -85,7 +85,7 @@ export type ReactMessageContextInternal = ReactMessageContext & {
 };
 
 export class ReactMessage {
-	static all = new Map<string, ReactMessage>();
+	static all = new Map<number, ReactMessage>();
 	static components = new Map<string, ReactMessageComponent<any>>();
 
 	static describe<T>(ns: string, component: ReactMessageComponent<T>) {
@@ -98,6 +98,7 @@ export class ReactMessage {
 				to: string,
 				initialProps: T,
 				init: Partial<Pick<ReactMessageInit, 'bot' | 'minApplyDelay'>> = {},
+				id?: string,
 			) => {
 				const message = new ReactMessage({
 					ns,
@@ -106,8 +107,11 @@ export class ReactMessage {
 					hooksState: [],
 					minApplyDelay: 1100,
 					...init,
+					id,
 					bot: init.bot ?? Communicator.getDefault().getProvider('telegram')!,
 				});
+
+				console.log('logs message.context', message.context)
 
 				return message.apply('force');
 			},
@@ -122,8 +126,9 @@ export class ReactMessage {
 			bot,
 		} = ctx;
 		const [ns, initialProps, hooksState, handlerIdx] = button;
+		console.log('logs ReactMessage.all', ReactMessage.all)
 		const message =
-			ReactMessage.all.get(id) ||
+			ReactMessage.all.get(Number(id)) ||
 			new ReactMessage({
 				id,
 				ns,
@@ -193,7 +198,7 @@ export class ReactMessage {
 			},
 		};
 
-		console.log('[new] ReactMessage:', init);
+		console.log('[new] ReactMessage:',  JSON.stringify(init));
 
 		this.ttlId = setTimeout(() => {
 			this.destroy();
@@ -272,10 +277,12 @@ export class ReactMessage {
 			),
 		);
 
-		await render(element, this.hostContainer!);
+		const renderedResult = await render(element, this.hostContainer!);
+		console.log('logs renderedResult', renderedResult);
 	}
 
 	private async apply(mode?: 'force' | 'only-render') {
+
 		const force = !!mode;
 
 		if (this.destroyed || (!force && this.applyLock)) {
@@ -290,14 +297,16 @@ export class ReactMessage {
 			await this.render();
 		}
 
+		console.log('logs apply data',this.data )
 		const {id, to, bot, replyTo} = this.data;
 
 		if (id) {
-			if (ReactMessage.all.get(id) !== this) {
-				ReactMessage.all.get(id)?.destroy();
+			const idNumber = Number(id);
+			if (ReactMessage.all.get(idNumber) !== this) {
+				ReactMessage.all.get(idNumber)?.destroy();
 			}
 
-			ReactMessage.all.set(id, this);
+			ReactMessage.all.set(idNumber, this);
 		}
 
 		this.applyId = setTimeout(
@@ -306,8 +315,6 @@ export class ReactMessage {
 					this.applyLock = false;
 					return;
 				}
-
-				console.log('logs this.context?.keyboard', JSON.stringify(this.context?.keyboard), 'this.hostContainer', this.hostContainer, 'containerToString(this.hostContainer!)', containerToString(this.hostContainer!) )
 
 				const msg: Message = {
 					to,
@@ -324,17 +331,16 @@ export class ReactMessage {
 					msg.keyboard?.flat().map((x: any) => [x.text, x.data]),
 				);
 
-				if (id) {
-					const result = await withRetry(() => bot.editMessage(id, to, msg));
-					if (result.data?.id) {
-						this.applyLock = false;
-						this.interactive = true;
-						return;
-					}
+				console.log('log msg', msg.keyboard)
+				const result = await withRetry(() => bot.sendMessage(msg, id));
+
+
+				if (result.data?.id) {
+					console.log('logs before ReactMessage.all.set  result.data?.id:', result.data?.id)
+					ReactMessage.all.set(Number(result.data?.id), this);
 				}
 
-				console.log('log msg', msg)
-				const result = await withRetry(() => bot.sendMessage(msg));
+				console.log('log result', result, 'ReactMessage.all', ReactMessage.all)
 
 				if (!result.error) {
 					this.data.id = result.data?.id;
@@ -358,7 +364,7 @@ export class ReactMessage {
 		this.interactive = false;
 		this.destroyed = true;
 
-		ReactMessage.all.delete(this.id);
+		ReactMessage.all.delete(Number(this.id));
 
 		if (this.hostContainer) {
 			render(null, this.hostContainer);

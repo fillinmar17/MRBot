@@ -1,59 +1,25 @@
 import * as React from 'react';
-
 import {useReactMessageInternal} from './Message';
-
-export type KeyboardProps = {
-	children: KeyboardRowElement | (KeyboardButtonElement | KeyboardRowElement)[];
-};
 
 export type KeyboardRowProps = {
 	children: KeyboardButtonElement | KeyboardButtonElement[];
 };
+export type KeyboardElement = React.FunctionComponentElement<KeyboardProps>;
+export type KeyboardRowElement = React.FunctionComponentElement<KeyboardRowProps>;
+export type KeyboardProps = {
+	children: KeyboardRowElement | (KeyboardButtonElement | KeyboardRowElement)[];
+};
+
 
 type InteractiveMessageContext = {
 	notifyText?: string;
 };
 
-export type KeyboardButtonProps = KeyboardButtonActionProps | KeyboardButtonUrlProps;
 
 export type KeyboardButtonActionProps = {
 	type?: 'primary' | 'attention';
 	onClick: 'close' | ((ctx: InteractiveMessageContext) => void);
 	value: string;
-};
-
-export type KeyboardButtonUrlProps = {
-	name?: string;
-	type?: 'primary' | 'attention';
-	url: string;
-	value: string;
-};
-
-export type KeyboardElement = React.FunctionComponentElement<KeyboardProps>;
-export type KeyboardRowElement = React.FunctionComponentElement<KeyboardRowProps>;
-export type KeyboardButtonElement = React.FunctionComponentElement<KeyboardButtonProps>;
-
-export const Keyboard = (props: KeyboardProps) => {
-	const {keyboard, keyboardHandlers} = useReactMessageInternal();
-
-	keyboard.length = 0;
-	keyboardHandlers.length = 0;
-
-	console.log('logs props.children', props.children, 'React.Children.toArray(props.children)', React.Children.toArray(props.children))
-
-	return <div>{'ops2'}{React.Children.toArray(props.children)}</div>;
-};
-
-// const toText = ({children}: KeyboardButtonProps) => {
-// 	return Array.isArray(children) ? children.join('') : `${children}`;
-// };
-
-const Row: React.FC<KeyboardRowProps> = (props: KeyboardRowProps) => {
-	const {keyboard} = useReactMessageInternal();
-
-	keyboard.push([]);
-
-	return <div>{React.Children.toArray(props.children)}</div>;
 };
 
 export type ClickedReactKeyboardButton = readonly [
@@ -63,49 +29,45 @@ export type ClickedReactKeyboardButton = readonly [
 	number, // [4] Handler Index
 ];
 
-/** Компонент кнопки */
-const Button: React.FC<KeyboardButtonProps> = (props) => {
-	const {keyboard, hooksState, keyboardHandlers, initialProps, message} = useReactMessageInternal();
-	let row = keyboard.length - 1;
-
-	if (row === -1) {
-		// Автоматически создаем Row
-		row = 0;
-		keyboard.push([]);
-	}
-
-	if ('url' in props) {
-		keyboard[row].push({
-			text: props.value,
-			url: props.url,
-		});
-	} else {
-		keyboard[row].push({
-			name: undefined as any,
-			text: props.value,
-			type: props.type,
-			callback_data: [message.ns, initialProps, hooksState, keyboardHandlers.push(props.onClick) - 1].join('.'),
-		});
-	}
-
-	return <div key={`${props.value}`} />;
+export type KeyboardButtonProps = {
+	id: string;
+	value: string;
+	type?: 'primary' | 'attention';
+	onClick: (ctx: any) => void;
 };
 
-Keyboard.displayName = 'Keyboard';
+export type KeyboardElement = React.FunctionComponentElement<KeyboardProps>;
+export type KeyboardButtonElement = React.FunctionComponentElement<KeyboardButtonProps>;
 
-Keyboard.Row = Row;
-Keyboard.Row.displayName = 'Keyboard.Row';
+export const Keyboard = (props: KeyboardProps) => {
+	const {keyboard, keyboardHandlers} = useReactMessageInternal();
+
+	// Clear existing keyboard data
+	keyboard.length = 0;
+	keyboardHandlers.length = 0;
+
+	// Process children to create keyboard layout
+	React.Children.forEach(props.children, child => {
+		if (React.isValidElement(child)) {
+			if (child.type === Button) {
+				// Add single button in new row
+				keyboard.push([{
+					name: child.props.value,
+					text: child.props.value,
+					type: child.props.type,
+					data: JSON.stringify({
+						id: child.props.id,
+						handlerIndex: keyboardHandlers.length
+					})
+				}]);
+				keyboardHandlers.push(child.props.onClick);
+			}
+		}
+	});
+
+	return null;
+};
+
+const Button: React.FC<KeyboardButtonProps> = () => null;
 
 Keyboard.Button = Button;
-Keyboard.Button.displayName = 'Keyboard.Button';
-
-export const urlButton = <Keyboard.Button
-	value="Open URL"
-	url="https://example.com"
-	type="primary" />
-
-export const counterButton = <Keyboard.Button
-	value="counter"
-	// type="primary"
-	onClick={()=>{console.log('logs on click')}}
-/>

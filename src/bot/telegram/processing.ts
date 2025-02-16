@@ -41,6 +41,7 @@ function telegramChatToChat(raw: TelegramChatPrivate | TelegramChatGroup | Teleg
 
 function telegramCallbackMessageToChatUpdate(
 	raw: TelegramUpdateCallbackText,
+	update_id: number,
 ): ChatCallbackEvent  {
 	console.log('logs in telegramMessageToChatUpdate raw', raw)
 
@@ -52,6 +53,7 @@ function telegramCallbackMessageToChatUpdate(
 		original: raw,
 		data: raw.data,
 		type: 'callback',
+		update_id
 	} as ChatCallbackEvent;
 }
 
@@ -125,7 +127,7 @@ export function telegramUpdateToChatUpdate(raw: TelegramUpdate): ChatUpdate | nu
 	}
 
 	if ('callback_query' in raw) {
-		return telegramCallbackMessageToChatUpdate(raw.callback_query);
+		return telegramCallbackMessageToChatUpdate(raw.callback_query, raw.update_id);
 	}
 
 	if ('channel_post' in raw) {

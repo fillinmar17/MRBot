@@ -313,6 +313,7 @@ export class Communicator {
 	/** Обработка обновления от бота */
 	private processingChatUpdate(provider: string, bot: CoreBot, update: ChatUpdate) {
 		if (update.type === 'callback') {
+			console.log('logs processingChatUpdate')
 			MessageKeyboard.handleCallbackEvent(this, bot, update);
 			return;
 		}
