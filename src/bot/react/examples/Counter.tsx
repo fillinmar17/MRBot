@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { Keyboard } from './bot/react/ui/Keyboard';
-import { Text } from './bot/react/ui/Text';
-import {useReactMessage} from "./bot/react/ui/Message";
+import { Keyboard } from '../ui/Keyboard';
+import { Text } from '../ui/Text';
+import {useReactMessage} from "../ui/Message";
 
 export const Counter = () => {
     const { useValue } = useReactMessage();
@@ -27,9 +27,6 @@ export const Counter = () => {
             />
         </Keyboard>
     );
-
-    // Create keyboard from the React component
-    // createKeyboardFromComponent(keyboardComponent);
 
     return (
         <>

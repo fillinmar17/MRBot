@@ -300,14 +300,12 @@ export class ReactMessage {
 		console.log('logs apply data',this.data )
 		const {id, to, bot, replyTo} = this.data;
 
-		if (id) {
-			const idNumber = Number(id);
-			if (ReactMessage.all.get(idNumber) !== this) {
-				ReactMessage.all.get(idNumber)?.destroy();
-			}
-
-			ReactMessage.all.set(idNumber, this);
+		const idNumber = Number(id);
+		if (ReactMessage.all.get(idNumber) !== this) {
+			ReactMessage.all.get(idNumber)?.destroy();
 		}
+
+		ReactMessage.all.set(idNumber, this);
 
 		this.applyId = setTimeout(
 			async () => {
