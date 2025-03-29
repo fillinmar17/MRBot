@@ -4,17 +4,24 @@ import {getDefaultApiToken} from "./bot/env";
 import {ReactMessage} from "./bot/react/core/message/message";
 import axios from "axios";
 import {Counter} from "./bot/react/examples/Counter";
+import {assignReviewers} from "./reviewers";
+import {MRNotFound} from "./bot/Components/Errors";
 
-const mineAcc = '415887410';
+export const mineTelegramAcc = '415887410';
 
 const communicator = Communicator.getDefault();
 
-let duration = 0
 const pullUpdates = async () => {
     const result = await communicator.pullUpdates()
-    console.log(`bots result after ${duration} second(s) of communicator.pullUpdates`, result)
+    result.forEach((message) =>{
+        if (message.type === 'message' && message.body) {
+            assignReviewers(message.body)
+            // todo: remove
+            return
+        }
+    })
+    // console.log(`bots result after ${duration} second(s) of communicator.pullUpdates`, result)
     setTimeout(() => {
-        duration++
         pullUpdates()
     }, 1000)
 }
@@ -22,18 +29,6 @@ const pullUpdates = async () => {
 const start = async() =>{
     // TODO: if telegram bot
     await axios.get(`https://api.telegram.org/bot${getDefaultApiToken()}/deleteWebhook`);
-
-    // const sendCounterMessage = async (chatId: string) => {
-    //     await ReactMessage.describe('counter', Counter).send(
-    //         chatId,
-    //         {},
-    //         {
-    //             minApplyDelay: 1000,
-    //         }
-    //     );
-    // };
-    //
-    // await sendCounterMessage(mineAcc);
 
     await pullUpdates();
 

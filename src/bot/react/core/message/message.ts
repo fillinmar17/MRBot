@@ -338,8 +338,6 @@ export class ReactMessage {
 					ReactMessage.all.set(Number(result.data?.id), this);
 				}
 
-				console.log('log result', result, 'ReactMessage.all', ReactMessage.all)
-
 				if (!result.error) {
 					this.data.id = result.data?.id;
 					this.applyLock = false;

@@ -1,5 +1,8 @@
 import axios from "axios";
 import {CodeOwner, getCodeOwnership, getCodeOwnershipInfo} from "./getCodeOwnership";
+import {ReactMessage} from "../bot/react/core/message/message";
+import {MRNotFound} from "../bot/Components/Errors";
+import {mineTelegramAcc} from "../index";
 
 export const GITHUB_TOKEN = process.env['GITHUB_TOKEN'] || '';
 
@@ -16,7 +19,7 @@ export type MRInfoType = {
     PR_NUMBER: string,
 }
 
-const getMRInfoFromUrl = (mr: string): MRInfoType | undefined =>{
+const getMRInfoFromUrl = (mr: string): MRInfoType | undefined => {
     const regex = /https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/;
     const matches = mr.match(regex);
 
@@ -24,7 +27,7 @@ const getMRInfoFromUrl = (mr: string): MRInfoType | undefined =>{
         const REPO_OWNER = matches[1];
         const REPO_NAME = matches[2];
         const PR_NUMBER = matches[3];
-        return { REPO_OWNER,REPO_NAME, PR_NUMBER}
+        return {REPO_OWNER, REPO_NAME, PR_NUMBER}
     } else {
         // todo: throw error
         // console.error("The URL format is invalid.");
@@ -36,14 +39,29 @@ export type MRFilesTypes = {
     filename: string,
     status: string,
 }
-async function getChangedFiles(mrInfo: MRInfoType) {
-    const {REPO_OWNER, REPO_NAME ,PR_NUMBER} = mrInfo
-    const response = await axios.get(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}/files`, {
-        headers: {
-            Authorization: `token ${GITHUB_TOKEN}`,
-        },
-    });
-    return response.data as MRFilesTypes[];
+
+async function getChangedFiles(mrInfo: MRInfoType, mr: string) {
+    const {REPO_OWNER, REPO_NAME, PR_NUMBER} = mrInfo
+    let files: MRFilesTypes[] = []
+    let isOkStatus = false
+    try {
+        const response = await axios.get(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}/files`, {
+            headers: {
+                Authorization: `token ${GITHUB_TOKEN}`,
+            },
+        })
+        files = response.data as MRFilesTypes[];
+        isOkStatus = true
+    } catch (error) {
+        if (axios.isAxiosError(error) && error.response?.status == 404) {
+            await sendMRNotFoundMessage(mineTelegramAcc, mr);
+        } else {
+            console.log('logs Unexpected error in getChangedFiles:', error);
+            throw error
+        }
+    }
+
+    return {files, isOkStatus}
 }
 
 type CommitAuthorType = {
@@ -78,7 +96,8 @@ interface Collaborator {
     avatar_url: string;
     html_url: string;
 }
-async function getCollaborators(mrInfo: MRInfoType): Promise<Collaborator[]|undefined>  {
+
+async function getCollaborators(mrInfo: MRInfoType): Promise<Collaborator[] | undefined> {
     const {REPO_OWNER, REPO_NAME} = mrInfo
     try {
         const response = await axios.get<Collaborator[]>(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/collaborators`, {
@@ -101,7 +120,7 @@ async function getCollaborators(mrInfo: MRInfoType): Promise<Collaborator[]|unde
 }
 
 const selectBestReviewers = (editorsTheSameFile: Record<string, number>, codeOwners?: CodeOwner[], collaborators?: Collaborator[]): string[] => {
-    if (!collaborators){
+    if (!collaborators) {
         return []
     }
     const uniqueLoginReviewers = new Set<string>();
@@ -146,7 +165,7 @@ async function getReviewersForFiles(mrInfo: MRInfoType, changedFiles: MRFilesTyp
 }
 
 async function getCurrentReviewers(MRInfo: MRInfoType) {
-    const {REPO_OWNER, REPO_NAME ,PR_NUMBER} = MRInfo;
+    const {REPO_OWNER, REPO_NAME, PR_NUMBER} = MRInfo;
     const response = await axios.get(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}/requested_reviewers`, {
         headers: {
             Authorization: `token ${GITHUB_TOKEN}`,
@@ -169,8 +188,8 @@ async function getCurrentReviewers(MRInfo: MRInfoType) {
 //     return loadMap;
 // }
 
-export const addReviewersToPR = async (mrInfo: MRInfoType, selectedReviewers: string[]):Promise<string[]|undefined> => {
-    const {REPO_OWNER, REPO_NAME ,PR_NUMBER} = mrInfo;
+export const addReviewersToPR = async (mrInfo: MRInfoType, selectedReviewers: string[]): Promise<string[] | undefined> => {
+    const {REPO_OWNER, REPO_NAME, PR_NUMBER} = mrInfo;
     console.log('logs trying to add Reviewers to PR', selectedReviewers)
     try {
         const response = await axios.post(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}/requested_reviewers`, {
@@ -183,23 +202,38 @@ export const addReviewersToPR = async (mrInfo: MRInfoType, selectedReviewers: st
             },
         });
         // todo: уведомить что успешно назначили ревьюеров
-        console.log('logs successfuly added reviewers', response.data.requested_reviewers.map((reviewers)=>reviewers.login));
-        return response.data.requested_reviewers.map((reviewers)=>reviewers.login) as string[]
-    } catch(error) {
+        console.log('logs successfuly added reviewers', response.data.requested_reviewers.map((reviewers) => reviewers.login));
+        return response.data.requested_reviewers.map((reviewers) => reviewers.login) as string[]
+    } catch (error) {
         // todo: уведомить что что-то пошло не так
-        console.error('logs error',  error);
+        console.error('logs error', error);
         return undefined;
     }
 }
 
+const sendMRNotFoundMessage = async (chatId: string, link: string) => {
+    await ReactMessage.describe('mrnotfound', MRNotFound).send(
+        chatId,
+        {link: link},
+        {
+            minApplyDelay: 1000,
+        }
+    );
+};
+
 // todo: обернуть все в трай/кетч
 export async function assignReviewers(mr: string) {
     const mrInfo = getMRInfoFromUrl(mr)
+
     if (!mrInfo) {
-        // todo: уведомить что неверная ссылка
+        await sendMRNotFoundMessage(mineTelegramAcc, mr);
         return;
     }
-    const changedFiles = await getChangedFiles(mrInfo);
+
+    const {files: changedFiles, isOkStatus} = await getChangedFiles(mrInfo, mr);
+    if (!isOkStatus) {
+        return;
+    }
 
     const codeOwnershipEntries = await getCodeOwnershipInfo(mrInfo)
 
@@ -210,7 +244,6 @@ export async function assignReviewers(mr: string) {
     const currentReviewers = await getCurrentReviewers(mrInfo);
 
     const addedReviewers = await addReviewersToPR(mrInfo, futureReviewers);
-
 
     if (addedReviewers && addedReviewers.length && codeOwnershipEntries && codeOwnershipEntries.codeOwnership && codeOwnershipEntries.codeOwnership.length) {
         const {codeOwnership} = codeOwnershipEntries
