@@ -197,9 +197,7 @@ export class Communicator {
 
 		this.botMap = Object.entries(BOT_REGISTRY).reduce((map, [key, {Bot, defaults}]) => {
 			const provider = key as string;
-
-			console.log('logs key, {Bot, defaults', key, {Bot, defaults})
-			// todo: think about how to throw current bot
+			// todo: think about how to throw current bot - use const
 			// const platformBots = platformConfig[provider]?.bot;
 			// const botName = platformBots?.default;
 			const botName = key;

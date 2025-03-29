@@ -1,4 +1,3 @@
-import {scheduleJob} from "node-schedule";
 import {Communicator} from './bot/communicator';
 
 import {getDefaultApiToken} from "./bot/env";
@@ -10,25 +9,33 @@ const mineAcc = '415887410';
 
 const communicator = Communicator.getDefault();
 
+let duration = 0
+const pullUpdates = async () => {
+    const result = await communicator.pullUpdates()
+    console.log(`bots result after ${duration} second(s) of communicator.pullUpdates`, result)
+    setTimeout(() => {
+        duration++
+        pullUpdates()
+    }, 1000)
+}
+
 const start = async() =>{
+    // TODO: if telegram bot
     await axios.get(`https://api.telegram.org/bot${getDefaultApiToken()}/deleteWebhook`);
 
-    const sendCounterMessage = async (chatId: string) => {
-        await ReactMessage.describe('counter', Counter).send(
-            chatId,
-            {},
-            {
-                minApplyDelay: 1100,
-            }
-        );
-    };
+    // const sendCounterMessage = async (chatId: string) => {
+    //     await ReactMessage.describe('counter', Counter).send(
+    //         chatId,
+    //         {},
+    //         {
+    //             minApplyDelay: 1000,
+    //         }
+    //     );
+    // };
+    //
+    // await sendCounterMessage(mineAcc);
 
-    await sendCounterMessage(mineAcc);
-
-    setTimeout(async () => {
-        const result = await communicator.pullUpdates()
-        console.log('bots result after 3 minit of communicator.pullUpdates', result)
-    }, 3000)
+    await pullUpdates();
 
 // todo: reminders
 // user.scheduled_notifications.map(async scheduled_notification => {
