@@ -1,9 +1,4 @@
-import axios from "axios";
-import {MR} from "@/reviewers/getRequestedMRsForUser";
-import {GITHUB_TOKEN} from "@/reviewers/index";
-import {getCommitsFromMR} from "@/reviewers/getCommitsFromMR";
 import {getCommentsFromMR} from "@/reviewers/getCommentsFromMR";
-import {UserContext} from "@/database/addUser/helpers";
 
 interface Comment {
     body: string;
@@ -15,7 +10,7 @@ interface Comment {
 }
 
 export const getNewComments = async (apiUrl: string, reviewers: string[], author: string, lastCommentId?: number) =>{
-    let newLastComment: number;
+    let newLastComment: number | undefined;
     const newCommentsToReviewers: Record<string, Comment[]> = {};
     const newCommentsToAuthor: Comment[] = [];
     const gitHubComments = await getCommentsFromMR(apiUrl)
@@ -46,32 +41,5 @@ export const getNewComments = async (apiUrl: string, reviewers: string[], author
     }
     return {
         newCommentsToAuthor, newCommentsToReviewers, newLastComment
-    }
-
-}
-
-export const checkMRStatusForReviewers = async (mr: MR, currentUser: string) => {
-    try {
-        const allComments = await getCommentsFromMR(mr.url)
-
-        const commentsMap = new Map(allComments.map(comment => [comment.id, comment]));
-        const newCommentsToShow: Comment[] = []
-
-        commentsMap.forEach((comment) => {
-            if (comment.in_reply_to_id) {
-                const commentAnsweredTo = commentsMap.get(comment.in_reply_to_id)
-                if (commentAnsweredTo?.user.login === currentUser) {
-                    newCommentsToShow.push(comment)
-                }
-            }
-        })
-
-        let hasNewCommentsOrReviews = false;
-        console.log('logs hasNewCommentsOrReviews:', hasNewCommentsOrReviews, 'newCommentsToShow', newCommentsToShow)
-    } catch (error) {
-        if (axios.isAxiosError(error)) {
-            console.log('[Error] in checkMRStatusForReviewers isAxiosError error.code:', error.code, 'error.message: ', error.message)
-        }
-        console.log('[Error] in checkMRStatusForReviewers', error)
     }
 }

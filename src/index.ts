@@ -3,38 +3,27 @@ import {Communicator} from './bot/communicator';
 import {getDefaultApiToken, getMongoDBUrl} from "./bot/env";
 import axios from "axios";
 import {assignReviewers} from "./reviewers";
-import {Collection, MongoClient} from 'mongodb';
 import 'dotenv/config'
 import {addUser} from "@/database/addUser/addUser";
-import {getPullRequests} from "@/reviewers/getPullRequests";
-import {ApprovingState, getMRApprovedStatus} from "@/reviewers/getMRApprovedStatus";
-import {getCommitsFromMR} from "@/reviewers/getCommitsFromMR";
-import {getCommentsFromMR} from "@/reviewers/getCommentsFromMR";
-import {getNewComments} from "@/reviewers/checkMRStatusForReviewers";
 import {MongoDbService} from "@/database/MongoDbService";
 
 const communicator = Communicator.getDefault();
 const mineTelegramAcc = '415887410';
 
-const pullUpdates = async () => {
+const pullUpdates = async (mongoService: MongoDbService) => {
     try {
         const result = await communicator.pullUpdates();
         for (const message of result) {
-            if (!userCollection) {
-                await initializeDB()
-            }
             if (!message.user?.id) continue;
             const chatId = message.chat.id;
             const text = message.type === 'message' ? message.body || '' : '';
             const userId = message.user.id;
-            const userInDB = await userCollection!.findOne({telegram: String(userId)});
-
+            const userInDB = await mongoService.findUser(userId);
             console.log('logs userInDB', userInDB, 'text', text,)
 
             if (!userInDB) {
-                await addUser(chatId, text, userCollection!)
+                await addUser(chatId, text, mongoService.addUser)
             } else if (message.type === 'message' && message.body) {
-                // await collection!.deleteMany({ telegram: String(userId)})
                 assignReviewers(message.body, chatId);
             }
         }
@@ -44,185 +33,115 @@ const pullUpdates = async () => {
         console.error('Error in pullUpdates:', error);
     }
 
-    // Рекурсивный вызов через 1 секунду
-    setTimeout(pullUpdates, 1000);
+    setTimeout(()=>pullUpdates(mongoService), 1000);
 };
-
-const client = new MongoClient(getMongoDBUrl(), {monitorCommands: true})
-
-let userCollection: Collection<Document> | undefined = undefined
-const dbName = 'myProject';
-const initializeDB = async () => {
-    // Use connect method to connect to the server
-    await client.connect();
-    console.log('Connected successfully to server');
-    const db = client.db(dbName);
-    userCollection = db.collection('users');
-    // reposCollection = db.collection('repos');
-}
-
-type reviewersWithStatus = {
-    login: string
-    approved: boolean
-}
-
-type UpdatedPullRequestsInfoType = {
-    reviewers?: string[];
-    approvers?: string[];
-    lastCommitSha?: string;
-    lastCommentId?: number;
-    updated_at?: Date;
-}
-
-type PullRequestsInfoType = {
-    number: number;
-} & UpdatedPullRequestsInfoType
-
-type RepoInDBType = {
-    name: string,
-    pullRequests: PullRequestsInfoType[]
-}
-const getRepoDetailsFromUrl = (url: string): { owner: string; name: string } | null => {
-    const regex = /https:\/\/api\.github\.com\/repos\/([^/]+)\/([^/]+)/;
-    const match = url.match(regex);
-
-    if (match && match.length === 3) {
-        const owner = match[1];
-        const name = match[2];
-
-        return {owner, name};
-    }
-
-    return null;
-}
 
 const start = async () => {
     // TODO: if telegram bot
     await axios.get(`https://api.telegram.org/bot${getDefaultApiToken()}/deleteWebhook`);
 
-    // await initializeDB();
-    const mongoService = new MongoDbService(getMongoDBUrl(), dbName);
+    const mongoService = new MongoDbService(getMongoDBUrl(), 'myProject');
     await mongoService.connect();
-    const reposFromDB = await mongoService.fetchRepositories()
-    const repoIds = reposFromDB.map(repo => repo._id)
-    // const pullRequests = await getPullRequests('https://api.github.com/repos/fillinmar17/ReposForMR')
-    // const newRepo = await mongoService.createRepository({url: 'https://api.github.com/repos/fillinmar17/ReposForMR'})
-
-    // console.log('logs pullRequests', pullRequests)
-    console.log('logs reposFromDB', reposFromDB, 'repoIds', repoIds,)
-    const findResult = await userCollection?.find({telegram: '415887410'}).toArray();
-    // const reposInfoFromDB = await reposCollection?.find({}).toArray() as RepoInDBType[];
-
-    // console.log('logs reposInfoFromDB: ', reposInfoFromDB)
-    for (const repoFromDB of reposFromDB) {
-        let updatedRepo: UpdatedPullRequestsInfoType = {};
-        const pullRequestsFromDB = await mongoService.fetchPullRequests(repoFromDB._id)
-        console.log('logs pullRequestsFromDB: ', pullRequestsFromDB)
-        const actualPullRequests = await getPullRequests(repoFromDB.url);
-        if (!actualPullRequests || actualPullRequests.length === 0) {
-            continue
-        }
-        const repoDetails = getRepoDetailsFromUrl(actualPullRequests[0].url)
-        // console.log('logs actualPullRequests', actualPullRequests);
-        if (!repoDetails) {
-            continue
-        }
-        for (const actualPullRequest of actualPullRequests) {
-            const mrFromDB = pullRequestsFromDB?.find((mrFromDB) => mrFromDB.number === actualPullRequest.number)
-
-            console.log('logs mrFromDB', 'actualPullRequest.number', mrFromDB)
-            const actualReviewers = actualPullRequest.requested_reviewers?.map(reviewer => reviewer.login);
-            const addedReviewers = actualPullRequest.requested_reviewers?.filter(reviewer => !mrFromDB?.reviewers?.includes(reviewer.login)).map(reviewer => reviewer.login);
-            const deletedReviewers = mrFromDB?.reviewers?.filter(reviewers => !actualReviewers.includes(reviewers));
-            if (addedReviewers && addedReviewers.length > 0) {
-                // todo: сщщбщить ревьерам что их добавили
-            }
-            if (deletedReviewers && deletedReviewers.length > 0) {
-                // todo: сообщить владельцу мр что ревьер отказался
-            }
-            if (addedReviewers && addedReviewers.length > 0 || deletedReviewers && deletedReviewers.length > 0) {
-                // todo: обновить инфу о ревьюерах в бд
-                updatedRepo.reviewers = actualPullRequest.requested_reviewers.map((reviewer) => reviewer.login);
-            }
-
-            console.log('logs actualReviewers', actualReviewers, 'deletedReviewers', deletedReviewers, 'addedReviewers', addedReviewers)
 
 
-            const approversFromDB  = mrFromDB?.approvers || []
-            const actualApprovers = await getMRApprovedStatus(actualPullRequest.number, repoDetails?.owner, repoDetails?.name);
-            const deletedApprovers = approversFromDB.filter(approver => !actualApprovers.includes(approver));
-            const newApprovers = actualApprovers.filter(approver => !approversFromDB.includes(approver));
-            if (newApprovers.length > 0) {
-                // todo: сообщить владельцу мр что появился новый аппрув
-            }
-            if (deletedApprovers.length > 0) {
-                // todo: сообщить владельцу мр что пропал аппрув
-            }
-            if (newApprovers.length > 0 || deletedApprovers.length > 0) {
-                // todo: обновить инфу о ревьюерах в бд
-                updatedRepo.approvers = actualApprovers
-            }
-            console.log('logs approvedStatuses: ', actualPullRequest.number, actualApprovers);
-            // todo: обновить инфу об аппруверах[ в бд
-
-            // если добавлся коммит но надо сообщить ревьюерам
-            const gitHubCommits = await getCommitsFromMR(actualPullRequest)
-            if (gitHubCommits.length > 0 ) {
-                const lastActualCommitSha = gitHubCommits[gitHubCommits.length - 1].sha
-                if (mrFromDB?.lastCommitSha ) {
-                    if (lastActualCommitSha !== mrFromDB?.lastCommitSha) {
-                        // todo: сообщить ревьюерам что в мр добавили коммит с названием!
-                        updatedRepo.lastCommitSha = lastActualCommitSha
-                    }
-                } else {
-                    updatedRepo.lastCommitSha = lastActualCommitSha
-                }
-            }
-
-            // console.log('logs gitHubCommits:', actualPullRequest.number, gitHubCommits)
-            // если появились новые ответы для ревьеров и владельцев надо сообщить об этом
-            // const gitHubComments = await getCommentsFromMR(actualPullRequest.url)
-            const {newCommentsToAuthor, newCommentsToReviewers, newLastComment} = await getNewComments(actualPullRequest.url, actualReviewers, actualPullRequest.user.login, mrFromDB?.lastCommentId);
-            if (newLastComment) {
-                updatedRepo.lastCommentId = newLastComment
-            }
-            console.log('logs comments',actualPullRequest.number, ':', newCommentsToAuthor, newCommentsToReviewers)
-
-            // todo: сообщаить автору и ревьерам о новый сообщениях - использовать body
-            console.log('logs updatedRepo of ',actualPullRequest.number, ':', updatedRepo)
-
-            if (!mrFromDB) {
-                console.log('logs этого мр нет в базе данных')
-                await mongoService.createPullRequest({
-                            ...updatedRepo,
-                            number: actualPullRequest.number,
-                            updated_at: actualPullRequest.updated_at,
-                            repositoryId: repoFromDB._id
-                })
-            } else if(Object.keys(updatedRepo).length > 0) {
-                const res = await mongoService.updatePullRequest(
-                    mrFromDB._id,
-                    {
-                        updated_at: actualPullRequest.updated_at,
-                        ...updatedRepo
-                    }
-                )
-                console.log('logs update pullrequest res', res)
-            }
-        }
-    }
-
-
-    // await pullUpdates();
-
+    // TODO checking repos every 5 minutes
+    // const reposFromDB = await mongoService.fetchRepositories()
+    // const repoIds = reposFromDB.map(repo => repo._id)
     //
-    // // const RequestedReviewsMRs = await getRequestedMRsForUser('fillinmar17')
-    // const ReviewedMRs = await getReviewedMRsByUser('fillinmar17')
-    // // console.log('logs RequestedMRs', RequestedReviewsMRs, 'ReviewedMRs', ReviewedMRs)
-    // for (const mr of ReviewedMRs) {
-    //     await checkMRStatusForReviewers(mr, 'fillinmar17')
+    // console.log('logs reposFromDB', reposFromDB, 'repoIds', repoIds,)
+    // for (const repoFromDB of reposFromDB) {
+    //     let updatedRepo: UpdatedPullRequestsInfoType = {};
+    //     const pullRequestsFromDB = await mongoService.fetchPullRequests(repoFromDB._id)
+    //     console.log('logs pullRequestsFromDB: ', pullRequestsFromDB)
+    //     const actualPullRequests = await getPullRequests(repoFromDB.url);
+    //     if (!actualPullRequests || actualPullRequests.length === 0) {
+    //         continue
+    //     }
+    //     const repoDetails = getRepoDetailsFromUrl(actualPullRequests[0].url)
+    //     if (!repoDetails) {
+    //         continue
+    //     }
+    //     for (const actualPullRequest of actualPullRequests) {
+    //         const mrFromDB = pullRequestsFromDB?.find((mrFromDB) => mrFromDB.number === actualPullRequest.number)
+    //
+    //         console.log('logs mrFromDB', 'actualPullRequest.number', mrFromDB)
+    //         const actualReviewers = actualPullRequest.requested_reviewers?.map(reviewer => reviewer.login);
+    //         const addedReviewers = actualPullRequest.requested_reviewers?.filter(reviewer => !mrFromDB?.reviewers?.includes(reviewer.login)).map(reviewer => reviewer.login);
+    //         const deletedReviewers = mrFromDB?.reviewers?.filter(reviewers => !actualReviewers.includes(reviewers));
+    //         if (addedReviewers && addedReviewers.length > 0) {
+    //             // todo: сщщбщить ревьерам что их добавили
+    //         }
+    //         if (deletedReviewers && deletedReviewers.length > 0) {
+    //             // todo: сообщить владельцу мр что ревьер отказался
+    //         }
+    //         if (addedReviewers && addedReviewers.length > 0 || deletedReviewers && deletedReviewers.length > 0) {
+    //             // todo: обновить инфу о ревьюерах в бд
+    //             updatedRepo.reviewers = actualPullRequest.requested_reviewers.map((reviewer) => reviewer.login);
+    //         }
+    //
+    //         const approversFromDB  = mrFromDB?.approvers || []
+    //         const actualApprovers = await getMRApprovedStatus(actualPullRequest.number, repoDetails?.owner, repoDetails?.name);
+    //         const deletedApprovers = approversFromDB.filter(approver => !actualApprovers.includes(approver));
+    //         const newApprovers = actualApprovers.filter(approver => !approversFromDB.includes(approver));
+    //         if (newApprovers.length > 0) {
+    //             // todo: сообщить владельцу мр что появился новый аппрув
+    //         }
+    //         if (deletedApprovers.length > 0) {
+    //             // todo: сообщить владельцу мр что пропал аппрув
+    //         }
+    //         if (newApprovers.length > 0 || deletedApprovers.length > 0) {
+    //             // todo: обновить инфу о ревьюерах в бд
+    //             updatedRepo.approvers = actualApprovers
+    //         }
+    //         console.log('logs approvedStatuses: ', actualPullRequest.number, actualApprovers);
+    //         // todo: обновить инфу об аппруверах[ в бд
+    //
+    //         // если добавлся коммит но надо сообщить ревьюерам
+    //         const gitHubCommits = await getCommitsFromMR(actualPullRequest)
+    //         if (gitHubCommits.length > 0 ) {
+    //             const lastActualCommitSha = gitHubCommits[gitHubCommits.length - 1].sha
+    //             if (mrFromDB?.lastCommitSha ) {
+    //                 if (lastActualCommitSha !== mrFromDB?.lastCommitSha) {
+    //                     // todo: сообщить ревьюерам что в мр добавили коммит с названием!
+    //                     updatedRepo.lastCommitSha = lastActualCommitSha
+    //                 }
+    //             } else {
+    //                 updatedRepo.lastCommitSha = lastActualCommitSha
+    //             }
+    //         }
+    //
+    //         const {newCommentsToAuthor, newCommentsToReviewers, newLastComment} = await getNewComments(actualPullRequest.url, actualReviewers, actualPullRequest.user.login, mrFromDB?.lastCommentId);
+    //         if (newLastComment) {
+    //             updatedRepo.lastCommentId = newLastComment
+    //         }
+    //         console.log('logs comments',actualPullRequest.number, ':', newCommentsToAuthor, newCommentsToReviewers)
+    //
+    //         // todo: сообщаить автору и ревьерам о новый сообщениях - использовать body
+    //         console.log('logs updatedRepo of ',actualPullRequest.number, ':', updatedRepo)
+    //
+    //         if (!mrFromDB) {
+    //             console.log('logs этого мр нет в базе данных')
+    //             await mongoService.createPullRequest({
+    //                         ...updatedRepo,
+    //                         number: actualPullRequest.number,
+    //                         updated_at: actualPullRequest.updated_at,
+    //                         repositoryId: repoFromDB._id
+    //             })
+    //         } else if(Object.keys(updatedRepo).length > 0) {
+    //             const res = await mongoService.updatePullRequest(
+    //                 mrFromDB._id,
+    //                 {
+    //                     updated_at: actualPullRequest.updated_at,
+    //                     ...updatedRepo
+    //                 }
+    //             )
+    //             console.log('logs update pullrequest res', res)
+    //         }
+    //     }
     // }
-    // console.log('logs assignedMRs', assignedMRs)
+
+
+    await pullUpdates(mongoService);
 }
 
 start()

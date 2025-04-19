@@ -16,10 +16,15 @@ interface PullRequestDocument {
     repositoryId: ObjectId
 }
 
+export interface UserDocument {
+    telegram: string, name: string, github: string
+}
+
 export class MongoDbService {
     private client: MongoClient;
     private db: Db;
     private pullRequestsCollectionName = 'pullRequests'
+    private usersCollectionName = 'users'
 
     constructor(connectionString: string, databaseName: string) {
         this.client = new MongoClient(connectionString);
@@ -33,6 +38,24 @@ export class MongoDbService {
 
     async closeConnection(): Promise<void> {
         await this.client.close();
+    }
+
+    async findUser(acc: string) {
+        try {
+            return this.db.collection(this.usersCollectionName)
+                .findOne({ telegram: acc });
+        } catch (err) {
+            throw new Error(`Failed to find user: ${err}`);
+        }
+    }
+
+    async addUser(data: UserDocument) {
+        try {
+            return this.db.collection(this.usersCollectionName)
+                .insertOne(data);
+        } catch (err) {
+            throw new Error(`Failed to add user: ${err}`);
+        }
     }
 
     /**
@@ -49,6 +72,7 @@ export class MongoDbService {
             throw new Error(`Failed to create repository: $message}`);
         }
     }
+
     async fetchRepositories() {
         try {
             return await this.db.collection('repositories').find().toArray();
@@ -57,9 +81,6 @@ export class MongoDbService {
         }
     }
 
-    /**
-     * Update an existing repository by id
-     */
     async updateRepository(id: string, updates: Partial<Omit<RepositoryDocument, '_id'>>): Promise<void> {
         try {
             await this.db.collection('repositories').updateOne(

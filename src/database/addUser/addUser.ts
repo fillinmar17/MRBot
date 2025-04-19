@@ -1,10 +1,11 @@
 import {ReactMessage} from "@/bot/react/core/message/message";
 import {UserNotFound} from "@/bot/Components/UserNotFound";
 import {GithubInput, NameInput, SuccessSubscribeUser} from "@/bot/Components/Errors";
-import {Collection, MongoServerError} from "mongodb";
+import {Collection, InsertOneResult, MongoServerError} from "mongodb";
 import {ChatContext, getOrCreateContext} from "@/database/addUser/helpers";
+import {UserDocument} from "@/database/MongoDbService";
 
-export const addUser = async(chatId: string, text: string, collection: Collection<Document>) => {
+export const addUser = async(chatId: string, text: string, addUserToDB: (data: UserDocument)=>  Promise<InsertOneResult<Document>>) => {
     const ctx = await getOrCreateContext(chatId);
     switch (ctx.state) {
         case ChatContext.START:
@@ -34,7 +35,8 @@ export const addUser = async(chatId: string, text: string, collection: Collectio
         case ChatContext.ASK_GITHUB:
             ctx.github = text.trim();
             try {
-                await collection!.insertOne({ telegram: chatId, name: ctx.name, github: ctx.github });
+                await addUserToDB({ telegram: chatId, name: ctx.name, github: ctx.github })
+                // await collection!.insertOne({ telegram: chatId, name: ctx.name, github: ctx.github });
             } catch (error) {
                 if (error instanceof MongoServerError) {
                     console.log(`MongoServerError during insertOne: ${error}`);
