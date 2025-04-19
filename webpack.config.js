@@ -17,6 +17,7 @@ module.exports = {
     },
     entry: './src/index.ts',
     resolve: {
+        alias: { '@': path.resolve(__dirname, 'src')},
         modules: ['src', 'node_modules'],
         extensions: ['.webpack.js', '.web.js', '.ts', '.tsx', '.js'],
     },

@@ -241,8 +241,6 @@ export class Communicator {
 			return [];
 		}
 
-		console.log('bot in getUpdates')
-
 		return await bot.getUpdates({
 			...options,
 			handleUpdate: (update) => {

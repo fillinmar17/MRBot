@@ -53,7 +53,7 @@ export class TelegramBot extends CoreBot {
 		if (message.keyboard) {
 			console.log('logs keyboard', message.keyboard)
 		}
-		console.log('logs in sendMessage message', message, 'message.format', message.format, ' keyboard', JSON.stringify(message.keyboard))
+		console.log('logs in sendMessage id: ', id, ',message', message, 'message.format', message.format, ' keyboard', JSON.stringify(message.keyboard))
 
 		const {error, data} = await this.call<{
 			ok: boolean;
@@ -116,19 +116,15 @@ export class TelegramBot extends CoreBot {
 	}
 
 	public override async getUpdates(options: BotUpdatesOptions) {
-		console.log('bots in telegramm getUpdates this.lastUpdated', this.lastUpdated);
 		const {data} = await this.call<TelegramResponse<TelegramUpdate[]>>('post', 'getUpdates', {
 			offset: this.lastUpdated,
 		});
-
-		console.log('bots in telegramm data this.lastUpdated',this.lastUpdated, 'data', JSON.stringify(data));
 
 		if (!data) {
 			return [];
 		}
 
 		return data.result.reduce((updates, raw) => {
-
 			const update = this.parseUpdate(telegramUpdateToChatUpdate, raw, options);
 			if (update) {
 				updates.push(update);

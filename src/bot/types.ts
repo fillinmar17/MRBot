@@ -95,6 +95,7 @@ export interface ChatCommandEvent extends ChatEvent<'command'> {
 export interface ChatPostEvent extends ChatEvent<'post'> {
 	parts: null | ChatMessagePart[];
 	body?: string;
+	user?: ChatUser | null;
 }
 
 export interface ChatMessageEvent extends ChatEvent<'message'> {

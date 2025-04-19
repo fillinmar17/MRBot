@@ -37,14 +37,6 @@ export type VirtualInstanceProps = Record<string, unknown>;
 
 export type VirtualPublicInstance = VirtualInstance;
 
-// export * from 'react-reconciler/src/ReactFiberHostConfigWithNoPersistence';
-// export * from 'react-reconciler/src/ReactFiberHostConfigWithNoHydration';
-// export * from 'react-reconciler/src/ReactFiberHostConfigWithNoScopes';
-// export * from 'react-reconciler/src/ReactFiberHostConfigWithNoTestSelectors';
-// export * from 'react-reconciler/src/ReactFiberHostConfigWithNoMicrotasks';
-// export * from 'react-reconciler/src/ReactFiberHostConfigWithNoResources';
-// export * from 'react-reconciler/src/ReactFiberHostConfigWithNoSingletons';
-
 const insertBefore = (parentInstance: VirtualContainer, entry: VirtualElements, beforeEntry: any) => {
 	const entries = parentInstance.entries.filter((x) => x !== entry);
 	const idx = entries.indexOf(beforeEntry);
@@ -112,14 +104,14 @@ export const hostConfig: Partial<
 	},
 
 	resetAfterCommit(container) {
-		// console.log('resetAfterCommit');
+		console.log('resetAfterCommit');
 		container.onUpdate?.(container);
 	},
 
 	resetTextContent() {},
 
 	getRootHostContext(container) {
-		// console.log('getRootHostContext');
+		console.log('getRootHostContext');
 		container.context ??= {};
 		container.onStart?.(container);
 		return container.context;

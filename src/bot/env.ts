@@ -14,6 +14,10 @@ export function getDefaultApiToken() {
 	return process.env['COMMUNICATOR_API_TOKEN'] || getVKTeamsToken();
 }
 
+export function getMongoDBUrl() {
+	return process.env['MONGO_URI'] || '';
+}
+
 export function getDefaultCiApiToken() {
 	return (
 		process.env['MR_DEPLOY_MYTEAM_API_TOKEN'] ||

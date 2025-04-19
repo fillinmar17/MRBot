@@ -43,7 +43,7 @@ function telegramCallbackMessageToChatUpdate(
 	raw: TelegramUpdateCallbackText,
 	update_id: number,
 ): ChatCallbackEvent  {
-	console.log('logs in telegramMessageToChatUpdate raw', raw)
+	// console.log('logs in telegramMessageToChatUpdate raw', raw)
 
 	return {
 		id: `${raw.message.message_id}`,

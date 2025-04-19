@@ -4,17 +4,14 @@ import {useReactMessageInternal} from './Message';
 export type KeyboardRowProps = {
 	children: KeyboardButtonElement | KeyboardButtonElement[];
 };
-export type KeyboardElement = React.FunctionComponentElement<KeyboardProps>;
 export type KeyboardRowElement = React.FunctionComponentElement<KeyboardRowProps>;
 export type KeyboardProps = {
 	children: KeyboardRowElement | (KeyboardButtonElement | KeyboardRowElement)[];
 };
 
-
 type InteractiveMessageContext = {
 	notifyText?: string;
 };
-
 
 export type KeyboardButtonActionProps = {
 	type?: 'primary' | 'attention';

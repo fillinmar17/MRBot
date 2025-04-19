@@ -71,6 +71,7 @@ export class MessageKeyboardContext<T> {
 	}
 
 	public async reply(body: string, init: Partial<Pick<Message, 'replyTo' | 'keyboard' | 'format'>> = {}) {
+		console.log('logs reply')
 		return await this.bot.sendMessage({
 			format: 'text',
 			...init,
@@ -83,6 +84,7 @@ export class MessageKeyboardContext<T> {
 	public send(init: Message): Promise<MessageSendResult>;
 	public send(body: string, init?: Partial<Message>): Promise<MessageSendResult>;
 	public send(initOrBody: string | Message, init?: Partial<Message>): Promise<MessageSendResult> {
+		console.log('logs send keyboard')
 		const body = typeof initOrBody === 'string' ? initOrBody : initOrBody.body;
 
 		return this.bot.sendMessage({
@@ -94,6 +96,7 @@ export class MessageKeyboardContext<T> {
 	}
 
 	public edit(body: string, init?: Partial<Message>) {
+		console.log('logs edit keyboard')
 		return this.bot.editMessage(this.message.id, this.chat.id, {
 			format: 'md2html',
 			body,
@@ -153,7 +156,6 @@ export class MessageKeyboard<Layout extends MessageKeyboardLayout> {
 		const callbackData: ClickedKeyboardButton | ClickedReactKeyboardButton = JSON.parse(evt.data);
 		console.log('logs callbackData', callbackData)
 		if ('id' in callbackData && 'handlerIndex' in callbackData) {
-			console.log('This is a React component keyboard callback', ReactMessage.all, 'evt.id', evt.id, 'ReactMessage.all.get(evt.id)', ReactMessage.all.get(evt.id))
 			console.log('logs ReactMessage.all.keys', ReactMessage.all.keys())
 			const message = ReactMessage.all.get(Number(evt.id));
 			if (!message) {
@@ -183,10 +185,7 @@ export class MessageKeyboard<Layout extends MessageKeyboardLayout> {
 	};
 
 	constructor(private init: MessageKeyboardInit<Layout>) {
-		console.log('logs in MessageKeyboard constructor')
 		this.id = `${init.id || ++nextId}`;
-
-		console.log('logs this.id', this.id)
 		this.layout = Object.entries(init.layout).reduce((layout, [key, rows]) => {
 			layout[key] = (...args: any[]) => prepareKeyboardRows(this.id, (rows as any)(...args));
 			return layout;

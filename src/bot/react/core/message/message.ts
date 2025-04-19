@@ -111,8 +111,6 @@ export class ReactMessage {
 					bot: init.bot ?? Communicator.getDefault().getProvider('telegram')!,
 				});
 
-				console.log('logs message.context', message.context)
-
 				return message.apply('force');
 			},
 		};
@@ -138,7 +136,9 @@ export class ReactMessage {
 				bot,
 			});
 
-		console.log('[ReactMessage] handleCallbackEvent check:', message.readState, {
+		console.log('logs message', message)
+
+		console.log('logs [ReactMessage] handleCallbackEvent check:', message.readState, {
 			id,
 			ns,
 			initialProps,
@@ -278,11 +278,10 @@ export class ReactMessage {
 		);
 
 		const renderedResult = await render(element, this.hostContainer!);
-		console.log('logs renderedResult', renderedResult);
 	}
 
 	private async apply(mode?: 'force' | 'only-render') {
-
+		console.log('logs private async apply mode: ',mode)
 		const force = !!mode;
 
 		if (this.destroyed || (!force && this.applyLock)) {
@@ -329,7 +328,6 @@ export class ReactMessage {
 					msg.keyboard?.flat().map((x: any) => [x.text, x.data]),
 				);
 
-				console.log('log msg', msg.keyboard)
 				const result = await withRetry(() => bot.sendMessage(msg, id));
 
 

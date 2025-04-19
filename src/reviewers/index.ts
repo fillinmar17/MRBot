@@ -1,8 +1,9 @@
 import axios from "axios";
 import {CodeOwner, getCodeOwnership, getCodeOwnershipInfo} from "./getCodeOwnership";
 import {ReactMessage} from "../bot/react/core/message/message";
-import {MRNotFound} from "../bot/Components/Errors";
-import {mineTelegramAcc} from "../index";
+import {MRNotFound, SomethingWentWrong} from "../bot/Components/Errors";
+import {SuccessAssignReviewers} from "../bot/Components/Success";
+import {getChangedFiles} from "@/reviewers/getChangedFiles";
 
 export const GITHUB_TOKEN = process.env['GITHUB_TOKEN'] || '';
 
@@ -22,17 +23,13 @@ export type MRInfoType = {
 const getMRInfoFromUrl = (mr: string): MRInfoType | undefined => {
     const regex = /https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/;
     const matches = mr.match(regex);
-
     if (matches && matches.length >= 4) {
         const REPO_OWNER = matches[1];
         const REPO_NAME = matches[2];
         const PR_NUMBER = matches[3];
         return {REPO_OWNER, REPO_NAME, PR_NUMBER}
-    } else {
-        // todo: throw error
-        // console.error("The URL format is invalid.");
-        return
     }
+    return
 }
 
 export type MRFilesTypes = {
@@ -40,29 +37,7 @@ export type MRFilesTypes = {
     status: string,
 }
 
-async function getChangedFiles(mrInfo: MRInfoType, mr: string) {
-    const {REPO_OWNER, REPO_NAME, PR_NUMBER} = mrInfo
-    let files: MRFilesTypes[] = []
-    let isOkStatus = false
-    try {
-        const response = await axios.get(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}/files`, {
-            headers: {
-                Authorization: `token ${GITHUB_TOKEN}`,
-            },
-        })
-        files = response.data as MRFilesTypes[];
-        isOkStatus = true
-    } catch (error) {
-        if (axios.isAxiosError(error) && error.response?.status == 404) {
-            await sendMRNotFoundMessage(mineTelegramAcc, mr);
-        } else {
-            console.log('logs Unexpected error in getChangedFiles:', error);
-            throw error
-        }
-    }
-
-    return {files, isOkStatus}
-}
+export const API_GITHUB_URL = 'https://api.github.com/'
 
 type CommitAuthorType = {
     name: string,
@@ -110,10 +85,9 @@ async function getCollaborators(mrInfo: MRInfoType): Promise<Collaborator[] | un
         return response.data;
     } catch (error) {
         if (axios.isAxiosError(error)) {
-            console.error(`Error fetching collaborators: ${error.message}`);
+            console.error(`[ERROR] Error fetching collaborators: ${error.message}`);
         } else {
-            console.error(`Unexpected error: ${error}`);
-            // throw new Error('An unexpected error occurred');
+            console.error(`[ERROR] Unexpected error: ${error}`);
         }
         return
     }
@@ -188,22 +162,23 @@ async function getCurrentReviewers(MRInfo: MRInfoType) {
 //     return loadMap;
 // }
 
-export const addReviewersToPR = async (mrInfo: MRInfoType, selectedReviewers: string[]): Promise<string[] | undefined> => {
+export const addReviewersToPR = async (mrInfo: MRInfoType, selectedReviewers: string[], chatId: string): Promise<string[] | undefined> => {
     const {REPO_OWNER, REPO_NAME, PR_NUMBER} = mrInfo;
     console.log('logs trying to add Reviewers to PR', selectedReviewers)
     try {
         const response = await axios.post(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}/requested_reviewers`, {
             reviewers: selectedReviewers
-            // reviewers: ['vasiaPupkin52']
         }, {
             headers: {
                 Authorization: `token ${GITHUB_TOKEN}`,
                 Accept: 'application/vnd.github.v3+json',
             },
         });
-        // todo: уведомить что успешно назначили ревьюеров
-        console.log('logs successfuly added reviewers', response.data.requested_reviewers.map((reviewers) => reviewers.login));
-        return response.data.requested_reviewers.map((reviewers) => reviewers.login) as string[]
+        const futureReviewers = response.data.requested_reviewers.map((reviewers) => reviewers.login) as string[]
+        if (futureReviewers.length > 0) {
+            await sendSuccessAssignReviewersMessage(chatId, futureReviewers);
+        }
+        return futureReviewers
     } catch (error) {
         // todo: уведомить что что-то пошло не так
         console.error('logs error', error);
@@ -211,7 +186,7 @@ export const addReviewersToPR = async (mrInfo: MRInfoType, selectedReviewers: st
     }
 }
 
-const sendMRNotFoundMessage = async (chatId: string, link: string) => {
+export const sendMRNotFoundMessage = async (chatId: string, link: string) => {
     await ReactMessage.describe('mrnotfound', MRNotFound).send(
         chatId,
         {link: link},
@@ -221,47 +196,61 @@ const sendMRNotFoundMessage = async (chatId: string, link: string) => {
     );
 };
 
-// todo: обернуть все в трай/кетч
-export async function assignReviewers(mr: string) {
-    const mrInfo = getMRInfoFromUrl(mr)
+const sendSuccessAssignReviewersMessage = async (chatId: string, users: string[]) => {
+    await ReactMessage.describe('setReviewers', SuccessAssignReviewers).send(
+        chatId,
+        {users},
+    );
+};
 
-    if (!mrInfo) {
-        await sendMRNotFoundMessage(mineTelegramAcc, mr);
-        return;
-    }
+const sendSomethingWentWrongMessage = async (chatId: string) => {
+    await ReactMessage.describe('somethingWentWrong', SomethingWentWrong).send(
+        chatId,
+        {},
+    );
+};
 
-    const {files: changedFiles, isOkStatus} = await getChangedFiles(mrInfo, mr);
-    if (!isOkStatus) {
-        return;
-    }
+export async function assignReviewers(mr: string, chatId: string) {
+    try {
+        const mrInfo = getMRInfoFromUrl(mr)
 
-    const codeOwnershipEntries = await getCodeOwnershipInfo(mrInfo)
+        if (!mrInfo) {
+            await sendMRNotFoundMessage(chatId, mr);
+            return;
+        }
 
-    const codeOwners = await getCodeOwnership(changedFiles, codeOwnershipEntries);
+        const {files: changedFiles} = await getChangedFiles(mrInfo, mr, chatId);
 
-    const futureReviewers = await getReviewersForFiles(mrInfo, changedFiles, codeOwners);
-    // todo: use it
-    const currentReviewers = await getCurrentReviewers(mrInfo);
+        const codeOwnershipEntries = await getCodeOwnershipInfo(mrInfo)
 
-    const addedReviewers = await addReviewersToPR(mrInfo, futureReviewers);
+        const codeOwners = await getCodeOwnership(changedFiles, codeOwnershipEntries);
 
-    if (addedReviewers && addedReviewers.length && codeOwnershipEntries && codeOwnershipEntries.codeOwnership && codeOwnershipEntries.codeOwnership.length) {
-        const {codeOwnership} = codeOwnershipEntries
-        const owners = codeOwnership
-            .flatMap(entry => entry.owners)
-            .filter((owner): owner is CodeOwner => owner !== undefined);
+        const futureReviewers = await getReviewersForFiles(mrInfo, changedFiles, codeOwners);
+        // todo: use it
+        const currentReviewers = await getCurrentReviewers(mrInfo);
 
-        const uniqueOwners = new Set(owners);
+        const addedReviewers = await addReviewersToPR(mrInfo, futureReviewers, chatId);
 
-        addedReviewers.forEach(reviewer => {
-            uniqueOwners.forEach(owner => {
-                if (owner.name === reviewer) {
-                    console.log('send telegramm message to owner', owner.name)
-                    // todo: send notification
-                }
+        if (addedReviewers && addedReviewers.length && codeOwnershipEntries && codeOwnershipEntries.codeOwnership && codeOwnershipEntries.codeOwnership.length) {
+            const {codeOwnership} = codeOwnershipEntries
+            const owners = codeOwnership
+                .flatMap(entry => entry.owners)
+                .filter((owner): owner is CodeOwner => owner !== undefined);
+
+            const uniqueOwners = new Set(owners);
+
+            addedReviewers.forEach(reviewer => {
+                uniqueOwners.forEach(owner => {
+                    if (owner.name === reviewer) {
+                        console.log('send telegramm message to owner', owner.name)
+                        // todo: send notification to users who will be reviewrs
+                    }
+                })
             })
-        })
+        }
+    } catch (error) {
+        console.log('logs error', error)
+        await sendSomethingWentWrongMessage(chatId)
     }
-
 }
 
