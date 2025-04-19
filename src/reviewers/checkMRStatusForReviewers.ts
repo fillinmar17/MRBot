@@ -21,15 +21,20 @@ export const getNewComments = async (apiUrl: string, reviewers: string[], author
     const gitHubComments = await getCommentsFromMR(apiUrl)
     const commentsMap = new Map(gitHubComments.map(comment => [comment.id, comment]));
     for (const comment of gitHubComments) {
-        if (lastCommentId && comment.id < lastCommentId ){
+        console.log('logs lastCommentId', lastCommentId, 'comment.id', 'commentsMap', commentsMap )
+        if (lastCommentId && comment.id <= lastCommentId ){
             continue
         }
         newLastComment = comment.id;
         if (comment.in_reply_to_id) {
             const commentAnsweredTo = commentsMap.get(comment.in_reply_to_id)
             if (commentAnsweredTo?.user.login ){
-                if (reviewers.includes(commentAnsweredTo?.user.login)) {
-                    newCommentsToReviewers[commentAnsweredTo.user.login].push(comment)
+                if (reviewers.includes(commentAnsweredTo.user.login)) {
+                    if (newCommentsToReviewers[commentAnsweredTo.user.login]) {
+                        newCommentsToReviewers[commentAnsweredTo.user.login].push(comment)
+                    } else {
+                        newCommentsToReviewers[commentAnsweredTo.user.login] = [comment]
+                    }
                 }
                 if (author == commentAnsweredTo?.user.login) {
                     newCommentsToAuthor.push(comment)

@@ -11,6 +11,7 @@ import {ApprovingState, getMRApprovedStatus} from "@/reviewers/getMRApprovedStat
 import {getCommitsFromMR} from "@/reviewers/getCommitsFromMR";
 import {getCommentsFromMR} from "@/reviewers/getCommentsFromMR";
 import {getNewComments} from "@/reviewers/checkMRStatusForReviewers";
+import {MongoDbService} from "@/database/MongoDbService";
 
 const communicator = Communicator.getDefault();
 const mineTelegramAcc = '415887410';
@@ -50,7 +51,6 @@ const pullUpdates = async () => {
 const client = new MongoClient(getMongoDBUrl(), {monitorCommands: true})
 
 let userCollection: Collection<Document> | undefined = undefined
-let reposCollection: Collection<Document> | undefined = undefined
 const dbName = 'myProject';
 const initializeDB = async () => {
     // Use connect method to connect to the server
@@ -58,7 +58,7 @@ const initializeDB = async () => {
     console.log('Connected successfully to server');
     const db = client.db(dbName);
     userCollection = db.collection('users');
-    reposCollection = db.collection('repos');
+    // reposCollection = db.collection('repos');
 }
 
 type reviewersWithStatus = {
@@ -71,11 +71,11 @@ type UpdatedPullRequestsInfoType = {
     approvers?: string[];
     lastCommitSha?: string;
     lastCommentId?: number;
+    updated_at?: Date;
 }
 
 type PullRequestsInfoType = {
     number: number;
-    updated_at?: Date;
 } & UpdatedPullRequestsInfoType
 
 type RepoInDBType = {
@@ -100,16 +100,25 @@ const start = async () => {
     // TODO: if telegram bot
     await axios.get(`https://api.telegram.org/bot${getDefaultApiToken()}/deleteWebhook`);
 
-    await initializeDB();
+    // await initializeDB();
+    const mongoService = new MongoDbService(getMongoDBUrl(), dbName);
+    await mongoService.connect();
+    const reposFromDB = await mongoService.fetchRepositories()
+    const repoIds = reposFromDB.map(repo => repo._id)
+    // const pullRequests = await getPullRequests('https://api.github.com/repos/fillinmar17/ReposForMR')
+    // const newRepo = await mongoService.createRepository({url: 'https://api.github.com/repos/fillinmar17/ReposForMR'})
 
+    // console.log('logs pullRequests', pullRequests)
+    console.log('logs reposFromDB', reposFromDB, 'repoIds', repoIds,)
     const findResult = await userCollection?.find({telegram: '415887410'}).toArray();
-    const reposInfoFromDB = await reposCollection?.find({}).toArray() as RepoInDBType[];
+    // const reposInfoFromDB = await reposCollection?.find({}).toArray() as RepoInDBType[];
 
-    console.log('logs reposInfoFromDB: ', reposInfoFromDB)
-    for (const repo of reposInfoFromDB) {
+    // console.log('logs reposInfoFromDB: ', reposInfoFromDB)
+    for (const repoFromDB of reposFromDB) {
         let updatedRepo: UpdatedPullRequestsInfoType = {};
-        console.log('logs repo.name: ', repo.name);
-        const actualPullRequests = await getPullRequests(repo.name);
+        const pullRequestsFromDB = await mongoService.fetchPullRequests(repoFromDB._id)
+        console.log('logs pullRequestsFromDB: ', pullRequestsFromDB)
+        const actualPullRequests = await getPullRequests(repoFromDB.url);
         if (!actualPullRequests || actualPullRequests.length === 0) {
             continue
         }
@@ -119,7 +128,7 @@ const start = async () => {
             continue
         }
         for (const actualPullRequest of actualPullRequests) {
-            const mrFromDB = repo.pullRequests?.find((mrFromDB) => mrFromDB.number === actualPullRequest.number)
+            const mrFromDB = pullRequestsFromDB?.find((mrFromDB) => mrFromDB.number === actualPullRequest.number)
 
             console.log('logs mrFromDB', 'actualPullRequest.number', mrFromDB)
             const actualReviewers = actualPullRequest.requested_reviewers?.map(reviewer => reviewer.login);
@@ -135,6 +144,8 @@ const start = async () => {
                 // todo: обновить инфу о ревьюерах в бд
                 updatedRepo.reviewers = actualPullRequest.requested_reviewers.map((reviewer) => reviewer.login);
             }
+
+            console.log('logs actualReviewers', actualReviewers, 'deletedReviewers', deletedReviewers, 'addedReviewers', addedReviewers)
 
 
             const approversFromDB  = mrFromDB?.approvers || []
@@ -154,7 +165,6 @@ const start = async () => {
             console.log('logs approvedStatuses: ', actualPullRequest.number, actualApprovers);
             // todo: обновить инфу об аппруверах[ в бд
 
-
             // если добавлся коммит но надо сообщить ревьюерам
             const gitHubCommits = await getCommitsFromMR(actualPullRequest)
             if (gitHubCommits.length > 0 ) {
@@ -171,7 +181,7 @@ const start = async () => {
 
             // console.log('logs gitHubCommits:', actualPullRequest.number, gitHubCommits)
             // если появились новые ответы для ревьеров и владельцев надо сообщить об этом
-            const gitHubComments = await getCommentsFromMR(actualPullRequest.url)
+            // const gitHubComments = await getCommentsFromMR(actualPullRequest.url)
             const {newCommentsToAuthor, newCommentsToReviewers, newLastComment} = await getNewComments(actualPullRequest.url, actualReviewers, actualPullRequest.user.login, mrFromDB?.lastCommentId);
             if (newLastComment) {
                 updatedRepo.lastCommentId = newLastComment
@@ -179,39 +189,30 @@ const start = async () => {
             console.log('logs comments',actualPullRequest.number, ':', newCommentsToAuthor, newCommentsToReviewers)
 
             // todo: сообщаить автору и ревьерам о новый сообщениях - использовать body
-            // console.log('logs gitHubComments:', actualPullRequest.number, gitHubComments)
-            // parseInt
             console.log('logs updatedRepo of ',actualPullRequest.number, ':', updatedRepo)
 
             if (!mrFromDB) {
                 console.log('logs этого мр нет в базе данных')
-                try {
-                    await reposCollection!.insertOne({
-                        ...updatedRepo,
-                        number: actualPullRequest.number,
-                        updated_at: actualPullRequest.updated_at
-                    });
-                } catch (error) {
-                    console.log("[Error] inserting merge request:", error);
-                }
+                await mongoService.createPullRequest({
+                            ...updatedRepo,
+                            number: actualPullRequest.number,
+                            updated_at: actualPullRequest.updated_at,
+                            repositoryId: repoFromDB._id
+                })
             } else if(Object.keys(updatedRepo).length > 0) {
-                try {
-                    // todo: update only mr
-                    await reposCollection!.updateOne(
-                        {number: actualPullRequest.number},
-                        {
-                            $set: {
-                                updated_at: actualPullRequest.updated_at,
-                                ...updatedRepo
-                            }
-                        }
-                    );
-                } catch (error) {
-                    console.log("[Error] updateOne merge request:", error);
-                }
+                const res = await mongoService.updatePullRequest(
+                    mrFromDB._id,
+                    {
+                        updated_at: actualPullRequest.updated_at,
+                        ...updatedRepo
+                    }
+                )
+                console.log('logs update pullrequest res', res)
             }
         }
     }
+
+
     // await pullUpdates();
 
     //

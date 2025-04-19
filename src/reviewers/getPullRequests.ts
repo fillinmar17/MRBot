@@ -27,6 +27,7 @@ export const getPullRequests = async (repoUrl: string) => {
             `${repoUrl}/pulls`,
             {headers: {Authorization: `token ${GITHUB_TOKEN}`}}
         );
+        console.log('logs pulls', pulls)
         return pulls.data as PullRequestType[]
     } catch (error) {
         if (axios.isAxiosError(error)) {
